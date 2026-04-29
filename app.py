@@ -55,7 +55,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # ==========================================
-# 1. KALICI VERİTABANI YÖNETİMİ (SENSÖR ÖLÇÜMLERİ İÇİN CSV)
+# 1. KALICI VERİTABANI YÖNETİMİ (CSV)
 # ==========================================
 CSV_FILE = "tarim_veritabani.csv"
 
@@ -72,13 +72,12 @@ def load_database():
 def save_to_database(new_row_df):
     new_row_df.to_csv(CSV_FILE, mode='a', header=False, index=False)
 
-
 # ==========================================
-# 2. KALICI PROFİL YÖNETİMİ (KULLANICI VE SERALAR İÇİN JSON)
+# 2. KALICI VE "AKILLI" PROFİL YÖNETİMİ (JSON)
 # ==========================================
 USERS_FILE = "kullanicilar.json"
 
-# Eğer JSON dosyası yoksa varsayılan çiftçileri oluştur
+# BURAYI İSTEDİĞİN ZAMAN GÜNCELLEYEBİLİRSİN!
 DEFAULT_USERS = {
     "TR-1000": {"ad": "Meryem Derin", "bahceler": ["Konya Merkez Lale Serası", "Çumra Domates Tesisleri"]},
     "TR-1001": {"ad": "Melih Geylani", "bahceler": ["Ereğli Organik Çilek"]},
@@ -87,21 +86,57 @@ DEFAULT_USERS = {
     "TR-1004": {"ad": "Juri3", "bahceler": ["Genel Test Serası"]}
 }
 
-def load_users():
+def load_and_sync_users():
+    """Koddaki listeyi, dosyadaki listeyle akıllıca birleştirir."""
+    # 1. Eğer dosya hiç yoksa, direkt koddakini yaz ve dön
     if not os.path.exists(USERS_FILE):
         with open(USERS_FILE, "w", encoding="utf-8") as f:
             json.dump(DEFAULT_USERS, f, ensure_ascii=False, indent=4)
         return DEFAULT_USERS
-    else:
-        with open(USERS_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
+    
+    # 2. Dosya varsa oku
+    with open(USERS_FILE, "r", encoding="utf-8") as f:
+        kayitli_kullanicilar = json.load(f)
+        
+    guncellendi_mi = False
+    
+    # 3. Koddaki yeni kişileri veya isim değişikliklerini dosyaya aktar
+    for user_id, data in DEFAULT_USERS.items():
+        if user_id not in kayitli_kullanicilar:
+            # Yeni bir ID eklenmiş!
+            kayitli_kullanicilar[user_id] = data
+            guncellendi_mi = True
+        else:
+            # ID var ama adı değişmiş olabilir (Örn: Juri1 -> Ahmet Hoca)
+            if kayitli_kullanicilar[user_id]["ad"] != data["ad"]:
+                kayitli_kullanicilar[user_id]["ad"] = data["ad"]
+                guncellendi_mi = True
+            
+            # Koddaki yeni bahçeleri de ekle (Kullanıcının kendi eklediği bahçeleri silmeden!)
+            for bahce in data["bahceler"]:
+                if bahce not in kayitli_kullanicilar[user_id]["bahceler"]:
+                    kayitli_kullanicilar[user_id]["bahceler"].append(bahce)
+                    guncellendi_mi = True
+                    
+    # 4. KODDAN SİLİNEN kişileri dosyadan da sil
+    silinecek_idler = [uid for uid in kayitli_kullanicilar if uid not in DEFAULT_USERS]
+    for uid in silinecek_idler:
+        del kayitli_kullanicilar[uid]
+        guncellendi_mi = True
+
+    # 5. Eğer bir değişiklik olduysa dosyayı ez/kaydet
+    if guncellendi_mi:
+        with open(USERS_FILE, "w", encoding="utf-8") as f:
+            json.dump(kayitli_kullanicilar, f, ensure_ascii=False, indent=4)
+            
+    return kayitli_kullanicilar
 
 def save_users(users_dict):
     with open(USERS_FILE, "w", encoding="utf-8") as f:
         json.dump(users_dict, f, ensure_ascii=False, indent=4)
 
-# Uygulama başlarken güncel kullanıcı listesini yükle
-GUNCEL_KULLANICILAR = load_users()
+# Uygulama başlarken kullanıcıları eşitle
+GUNCEL_KULLANICILAR = load_and_sync_users()
 
 # ==========================================
 # OTURUM (SESSION) YÖNETİMİ
@@ -131,7 +166,7 @@ if not st.session_state.logged_in:
     
     with col1:
         st.subheader("🧑‍🌾 Kayıtlı Çiftçi Girişi")
-        st.info("Sisteme tanımlı Müşteri ID'nizi giriniz. (Örn: TR-1001)")
+        st.info("Sisteme tanımlı Müşteri ID'nizi giriniz. (Örn: TR-1000)")
         girilen_id = st.text_input("Müşteri ID:", key="login_id").strip().upper()
         
         if st.button("Sisteme Giriş Yap", use_container_width=True):
@@ -186,11 +221,9 @@ else:
                 yeni_bahce_adi = st.text_input("Yeni Bölge Adı (Örn: Yonca Tarlası)")
                 if st.button("Ekle", use_container_width=True):
                     if yeni_bahce_adi and yeni_bahce_adi not in st.session_state.kullanici_bahceleri:
-                        # 1. Oturuma (Ekrana) ekle
                         st.session_state.kullanici_bahceleri.append(yeni_bahce_adi)
                         st.session_state.aktif_bahce = yeni_bahce_adi
                         
-                        # 2. JSON Dosyasına (Kalıcı Veritabanına) Ekle
                         GUNCEL_KULLANICILAR[st.session_state.user_id]["bahceler"].append(yeni_bahce_adi)
                         save_users(GUNCEL_KULLANICILAR)
                         
