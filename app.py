@@ -57,9 +57,9 @@ st.markdown("""
 # ==========================================
 # Artık bahçe adları bir liste!
 VALID_USERS = {
-    "TR-1001": {"ad": "Ahmet Yılmaz", "bahceler": ["Konya Merkez Lale Serası", "Çumra Domates Tesisleri"]},
-    "TR-1002": {"ad": "Mehmet Demir", "bahceler": ["Ereğli Organik Çilek"]},
-    "TR-1003": {"ad": "Ayşe Kaya", "bahceler": ["Genel Test Serası"]}
+    "TR-1001": {"ad": "Meryem Derin", "bahceler": ["Konya Merkez Lale Serası", "Çumra Domates Tesisleri"]},
+    "TR-1002": {"ad": "Melih Geylani", "bahceler": ["Ereğli Organik Çilek"]},
+    "TR-1003": {"ad": "Ayşegül Börekci", "bahceler": ["Genel Test Serası"]}
 }
 
 # ==========================================
