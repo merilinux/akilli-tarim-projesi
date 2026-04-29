@@ -3,6 +3,7 @@ from google import genai
 from PIL import Image
 import pandas as pd
 import random
+import os
 from datetime import datetime
 
 # ==========================================
@@ -53,17 +54,37 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # ==========================================
-# GİZLİ KULLANICI VERİTABANI (KAYITLI ÇİFTÇİLER)
+# KALICI VERİTABANI YÖNETİMİ (CSV FILE)
 # ==========================================
-# Artık bahçe adları bir liste!
+CSV_FILE = "tarim_veritabani.csv"
+
+# Eğer veritabanı dosyası yoksa, boş şablonla oluştur.
+if not os.path.exists(CSV_FILE):
+    df_empty = pd.DataFrame(columns=[
+        "Kullanıcı ID", "Kullanıcı Adı", "Bahçe/Sera", "Tarih", 
+        "Ortam Sıcaklığı (°C)", "Hava Nemi (%)", "Toprak Nemi (%)"
+    ])
+    df_empty.to_csv(CSV_FILE, index=False)
+
+def load_database():
+    """CSV dosyasından tüm verileri okur."""
+    return pd.read_csv(CSV_FILE)
+
+def save_to_database(new_row_df):
+    """Yeni analizi CSV dosyasına kalıcı olarak ekler."""
+    new_row_df.to_csv(CSV_FILE, mode='a', header=False, index=False)
+
+# ==========================================
+# GİZLİ KULLANICI LİSTESİ (KAYITLI ÇİFTÇİLER)
+# ==========================================
 VALID_USERS = {
-    "TR-1001": {"ad": "Meryem Derin", "bahceler": ["Konya Merkez Lale Serası", "Çumra Domates Tesisleri"]},
-    "TR-1002": {"ad": "Melih Geylani", "bahceler": ["Ereğli Organik Çilek"]},
-    "TR-1003": {"ad": "Ayşegül Börekci", "bahceler": ["Genel Test Serası"]}
+    "TR-1001": {"ad": "Ahmet Yılmaz", "bahceler": ["Konya Merkez Lale Serası", "Çumra Domates Tesisleri"]},
+    "TR-1002": {"ad": "Mehmet Demir", "bahceler": ["Ereğli Organik Çilek"]},
+    "TR-1003": {"ad": "Ayşe Kaya", "bahceler": ["Genel Test Serası"]}
 }
 
 # ==========================================
-# OTURUM (SESSION) YÖNETİMİ (SAHTE VERİLER SİLİNDİ)
+# OTURUM (SESSION) YÖNETİMİ
 # ==========================================
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
@@ -77,14 +98,6 @@ if "kullanici_bahceleri" not in st.session_state:
     st.session_state.kullanici_bahceleri = []
 if "is_guest" not in st.session_state:
     st.session_state.is_guest = False
-    
-# GERÇEK ZAMANLI VERİTABANI (BAŞLANGIÇTA BOŞ)
-if "history" not in st.session_state:
-    st.session_state.history = pd.DataFrame(columns=[
-        "Kullanıcı ID", "Kullanıcı Adı", "Bahçe/Sera", "Tarih", 
-        "Ortam Sıcaklığı (°C)", "Hava Nemi (%)", "Toprak Nemi (%)"
-    ])
-
 if "sensor_data" not in st.session_state:
     st.session_state.sensor_data = {"temp": 24, "hum": 50, "soil": 40}
 
@@ -108,7 +121,7 @@ if not st.session_state.logged_in:
                 st.session_state.user_id = girilen_id
                 st.session_state.user_name = VALID_USERS[girilen_id]["ad"]
                 st.session_state.kullanici_bahceleri = VALID_USERS[girilen_id]["bahceler"]
-                st.session_state.aktif_bahce = st.session_state.kullanici_bahceleri[0] # İlk bahçeyi otomatik seç
+                st.session_state.aktif_bahce = st.session_state.kullanici_bahceleri[0]
                 st.rerun()
             else:
                 st.error("❌ Hatalı ID! Kayıtlı bir kullanıcı bulunamadı.")
@@ -138,7 +151,6 @@ else:
         st.divider()
         st.header("🏡 Saha/Sera Yönetimi")
         
-        # Seçili Bahçeyi Belirle
         secilen = st.selectbox(
             "Aktif Saha Seçiniz:", 
             options=st.session_state.kullanici_bahceleri,
@@ -149,7 +161,6 @@ else:
             st.session_state.aktif_bahce = secilen
             st.rerun()
 
-        # Kayıtlı Çiftçi İse Yeni Bahçe Ekleme Özelliği Göster
         if not st.session_state.is_guest:
             with st.expander("➕ Yeni Saha/Bölge Ekle"):
                 yeni_bahce_adi = st.text_input("Yeni Bölge Adı (Örn: Yonca Tarlası)")
@@ -180,11 +191,18 @@ else:
 
     st.title(f"🌱 Akıllı Tarım Platformu")
     
-    # SADECE SEÇİLİ BAHÇEYE VE KULLANICIYA AİT VERİYİ FİLTRELE
-    kullanici_verisi = st.session_state.history[
-        (st.session_state.history["Kullanıcı ID"] == st.session_state.user_id) & 
-        (st.session_state.history["Bahçe/Sera"] == st.session_state.aktif_bahce)
-    ]
+    # KALICI VERİTABANINI OKU VE KULLANICIYA GÖRE FİLTRELE
+    genel_veritabani = load_database()
+    
+    if st.session_state.is_guest:
+        # Misafirler için boş bir veri çerçevesi (geçmiş veri gösterilmez)
+        kullanici_verisi = pd.DataFrame(columns=genel_veritabani.columns)
+    else:
+        # Kayıtlı çiftçi için kendi ID'si ve aktif bahçesine göre filtrele
+        kullanici_verisi = genel_veritabani[
+            (genel_veritabani["Kullanıcı ID"] == st.session_state.user_id) & 
+            (genel_veritabani["Bahçe/Sera"] == st.session_state.aktif_bahce)
+        ]
 
     tab1, tab2, tab3 = st.tabs(["📸 Anlık Analiz ve Veri Füzyonu", "📅 Gelişim Ajandası", "🔮 Proaktif Risk Tahmini"])
 
@@ -282,7 +300,7 @@ else:
                             st.success(f"✅ Başarılı. {st.session_state.aktif_bahce} için analiz tamamlandı.")
                             st.markdown(response_text.replace("[GERÇEK]", "").strip())
 
-                            # GİRİŞ YAPAN KİŞİ MİSAFİR DEĞİLSE VERİYİ KAYDET
+                            # GİRİŞ YAPAN KİŞİ MİSAFİR DEĞİLSE VERİYİ "KALICI" OLARAK CSV'YE KAYDET
                             if not st.session_state.is_guest:
                                 new_data = pd.DataFrame({
                                     "Kullanıcı ID": [st.session_state.user_id],
@@ -293,8 +311,8 @@ else:
                                     "Hava Nemi (%)": [c_hum],
                                     "Toprak Nemi (%)": [c_soil]
                                 })
-                                st.session_state.history = pd.concat([st.session_state.history, new_data], ignore_index=True)
-                                st.info("💾 Bu analiz sonucu sadece sizin veritabanınıza (Ajanda sekmesine) kaydedildi.")
+                                save_to_database(new_data)
+                                st.info("💾 Analiz sonucu GÜVENLİ VERİTABANINA KALICI OLARAK kaydedildi.")
                             else:
                                 st.warning("⚠️ Misafir oturumunda olduğunuz için bu analiz sonucu veritabanına KALICI OLARAK KAYDEDİLMEDİ.")
                         else:
@@ -306,18 +324,25 @@ else:
     # SEKME 2: AJANDA
     # ------------------------------------------
     with tab2:
-        st.subheader(f"📅 Bulut Veri Tabanı: {st.session_state.aktif_bahce}")
+        st.subheader(f"📅 Kalıcı Veri Tabanı: {st.session_state.aktif_bahce}")
         
         if st.session_state.is_guest:
             st.warning("Misafir oturumlarında veritabanı kayıt tutmamaktadır. Kayıt tutabilmek için Çiftçi ID'niz ile giriş yapmalısınız.")
         else:
-            st.write(f"Sayın **{st.session_state.user_name}**, aşağıda sadece **{st.session_state.aktif_bahce}** bölgeniz için kaydedilen sensör okumaları listelenmektedir.")
+            # Görüntüleme için en son eklenenleri yenilemek adına dosyadan tekrar okutuyoruz
+            guncel_veritabani = load_database()
+            kullanici_guncel_veri = guncel_veritabani[
+                (guncel_veritabani["Kullanıcı ID"] == st.session_state.user_id) & 
+                (guncel_veritabani["Bahçe/Sera"] == st.session_state.aktif_bahce)
+            ]
             
-            if not kullanici_verisi.empty:
-                st.dataframe(kullanici_verisi, use_container_width=True)
+            st.write(f"Sayın **{st.session_state.user_name}**, aşağıda sadece **{st.session_state.aktif_bahce}** bölgeniz için kaydedilen kalıcı sensör okumaları listelenmektedir.")
+            
+            if not kullanici_guncel_veri.empty:
+                st.dataframe(kullanici_guncel_veri, use_container_width=True)
                 st.divider()
                 st.subheader("📉 Çevresel Parametrelerin Zaman Serisi Analizi")
-                chart_data = kullanici_verisi.set_index("Tarih")[["Ortam Sıcaklığı (°C)", "Hava Nemi (%)", "Toprak Nemi (%)"]]
+                chart_data = kullanici_guncel_veri.set_index("Tarih")[["Ortam Sıcaklığı (°C)", "Hava Nemi (%)", "Toprak Nemi (%)"]]
                 st.line_chart(chart_data)
             else:
                 st.info(f"ℹ️ Henüz {st.session_state.aktif_bahce} için kaydedilmiş bir geçmiş veri bulunmamaktadır. İlk analizi 'Anlık Analiz' sekmesinden yapabilirsiniz.")
@@ -342,7 +367,12 @@ else:
                 with st.spinner("Hesaplanıyor..."):
                     try:
                         client = genai.Client(api_key=api_key)
-                        past_data_str = kullanici_verisi.to_string(index=False) if not kullanici_verisi.empty else "Geçmiş veri yok."
+                        guncel_db = load_database()
+                        guncel_gecmis = guncel_db[
+                            (guncel_db["Kullanıcı ID"] == st.session_state.user_id) & 
+                            (guncel_db["Bahçe/Sera"] == st.session_state.aktif_bahce)
+                        ]
+                        past_data_str = guncel_gecmis.to_string(index=False) if not guncel_gecmis.empty else "Geçmiş veri yok."
 
                         sim_prompt = f"""
                         Sen bitki hastalıklarını ve su stresini önceden tahmin eden proaktif bir Karar Destek Sistemisin.
