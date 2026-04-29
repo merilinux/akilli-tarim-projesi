@@ -82,9 +82,9 @@ USERS_FILE = "kullanicilar.json"
 DEFAULT_USERS = {
     "TR-1000": {"ad": "Meryem Derin", "bahceler": ["Konya Merkez Lale Serası", "Çumra Domates Tesisleri"]},
     "TR-1001": {"ad": "Melih Geylani", "bahceler": ["Ereğli Organik Çilek"]},
-    "TR-1002": {"ad": "Juri1", "bahceler": ["Genel Test Serası"]}
-    "TR-1003": {"ad": "Juri2", "bahceler": ["Genel Test Serası"]}
-    "TR-1004": {"ad": "Juri3", "bahceler": ["Genel Test Serası"]}
+    "TR-1002": {"ad": "Juri1", "bahceler": ["Genel Test Serası"]},
+    "TR-1003": {"ad": "Juri2", "bahceler": ["Genel Test Serası"]},
+    "TR-1004": {"ad": "Juri3", "bahceler": ["Genel Test Serası"]},
 }
 
 def load_users():
