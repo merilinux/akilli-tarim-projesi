@@ -4,6 +4,7 @@ from PIL import Image
 import pandas as pd
 import random
 import os
+import json
 from datetime import datetime
 
 # ==========================================
@@ -54,11 +55,10 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # ==========================================
-# KALICI VERİTABANI YÖNETİMİ (CSV FILE)
+# 1. KALICI VERİTABANI YÖNETİMİ (SENSÖR ÖLÇÜMLERİ İÇİN CSV)
 # ==========================================
 CSV_FILE = "tarim_veritabani.csv"
 
-# Eğer veritabanı dosyası yoksa, boş şablonla oluştur.
 if not os.path.exists(CSV_FILE):
     df_empty = pd.DataFrame(columns=[
         "Kullanıcı ID", "Kullanıcı Adı", "Bahçe/Sera", "Tarih", 
@@ -67,21 +67,39 @@ if not os.path.exists(CSV_FILE):
     df_empty.to_csv(CSV_FILE, index=False)
 
 def load_database():
-    """CSV dosyasından tüm verileri okur."""
     return pd.read_csv(CSV_FILE)
 
 def save_to_database(new_row_df):
-    """Yeni analizi CSV dosyasına kalıcı olarak ekler."""
     new_row_df.to_csv(CSV_FILE, mode='a', header=False, index=False)
 
+
 # ==========================================
-# GİZLİ KULLANICI LİSTESİ (KAYITLI ÇİFTÇİLER)
+# 2. KALICI PROFİL YÖNETİMİ (KULLANICI VE SERALAR İÇİN JSON)
 # ==========================================
-VALID_USERS = {
+USERS_FILE = "kullanicilar.json"
+
+# Eğer JSON dosyası yoksa varsayılan çiftçileri oluştur
+DEFAULT_USERS = {
     "TR-1001": {"ad": "Ahmet Yılmaz", "bahceler": ["Konya Merkez Lale Serası", "Çumra Domates Tesisleri"]},
     "TR-1002": {"ad": "Mehmet Demir", "bahceler": ["Ereğli Organik Çilek"]},
     "TR-1003": {"ad": "Ayşe Kaya", "bahceler": ["Genel Test Serası"]}
 }
+
+def load_users():
+    if not os.path.exists(USERS_FILE):
+        with open(USERS_FILE, "w", encoding="utf-8") as f:
+            json.dump(DEFAULT_USERS, f, ensure_ascii=False, indent=4)
+        return DEFAULT_USERS
+    else:
+        with open(USERS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+
+def save_users(users_dict):
+    with open(USERS_FILE, "w", encoding="utf-8") as f:
+        json.dump(users_dict, f, ensure_ascii=False, indent=4)
+
+# Uygulama başlarken güncel kullanıcı listesini yükle
+GUNCEL_KULLANICILAR = load_users()
 
 # ==========================================
 # OTURUM (SESSION) YÖNETİMİ
@@ -115,12 +133,12 @@ if not st.session_state.logged_in:
         girilen_id = st.text_input("Müşteri ID:", key="login_id").strip().upper()
         
         if st.button("Sisteme Giriş Yap", use_container_width=True):
-            if girilen_id in VALID_USERS:
+            if girilen_id in GUNCEL_KULLANICILAR:
                 st.session_state.logged_in = True
                 st.session_state.is_guest = False
                 st.session_state.user_id = girilen_id
-                st.session_state.user_name = VALID_USERS[girilen_id]["ad"]
-                st.session_state.kullanici_bahceleri = VALID_USERS[girilen_id]["bahceler"]
+                st.session_state.user_name = GUNCEL_KULLANICILAR[girilen_id]["ad"]
+                st.session_state.kullanici_bahceleri = GUNCEL_KULLANICILAR[girilen_id]["bahceler"]
                 st.session_state.aktif_bahce = st.session_state.kullanici_bahceleri[0]
                 st.rerun()
             else:
@@ -166,9 +184,15 @@ else:
                 yeni_bahce_adi = st.text_input("Yeni Bölge Adı (Örn: Yonca Tarlası)")
                 if st.button("Ekle", use_container_width=True):
                     if yeni_bahce_adi and yeni_bahce_adi not in st.session_state.kullanici_bahceleri:
+                        # 1. Oturuma (Ekrana) ekle
                         st.session_state.kullanici_bahceleri.append(yeni_bahce_adi)
                         st.session_state.aktif_bahce = yeni_bahce_adi
-                        st.success(f"{yeni_bahce_adi} başarıyla eklendi!")
+                        
+                        # 2. JSON Dosyasına (Kalıcı Veritabanına) Ekle
+                        GUNCEL_KULLANICILAR[st.session_state.user_id]["bahceler"].append(yeni_bahce_adi)
+                        save_users(GUNCEL_KULLANICILAR)
+                        
+                        st.success(f"{yeni_bahce_adi} başarıyla eklendi ve sisteme kaydedildi!")
                         st.rerun()
                     elif yeni_bahce_adi in st.session_state.kullanici_bahceleri:
                         st.warning("Bu bölge zaten kayıtlı.")
@@ -191,14 +215,11 @@ else:
 
     st.title(f"🌱 Akıllı Tarım Platformu")
     
-    # KALICI VERİTABANINI OKU VE KULLANICIYA GÖRE FİLTRELE
     genel_veritabani = load_database()
     
     if st.session_state.is_guest:
-        # Misafirler için boş bir veri çerçevesi (geçmiş veri gösterilmez)
         kullanici_verisi = pd.DataFrame(columns=genel_veritabani.columns)
     else:
-        # Kayıtlı çiftçi için kendi ID'si ve aktif bahçesine göre filtrele
         kullanici_verisi = genel_veritabani[
             (genel_veritabani["Kullanıcı ID"] == st.session_state.user_id) & 
             (genel_veritabani["Bahçe/Sera"] == st.session_state.aktif_bahce)
@@ -300,7 +321,6 @@ else:
                             st.success(f"✅ Başarılı. {st.session_state.aktif_bahce} için analiz tamamlandı.")
                             st.markdown(response_text.replace("[GERÇEK]", "").strip())
 
-                            # GİRİŞ YAPAN KİŞİ MİSAFİR DEĞİLSE VERİYİ "KALICI" OLARAK CSV'YE KAYDET
                             if not st.session_state.is_guest:
                                 new_data = pd.DataFrame({
                                     "Kullanıcı ID": [st.session_state.user_id],
@@ -329,7 +349,6 @@ else:
         if st.session_state.is_guest:
             st.warning("Misafir oturumlarında veritabanı kayıt tutmamaktadır. Kayıt tutabilmek için Çiftçi ID'niz ile giriş yapmalısınız.")
         else:
-            # Görüntüleme için en son eklenenleri yenilemek adına dosyadan tekrar okutuyoruz
             guncel_veritabani = load_database()
             kullanici_guncel_veri = guncel_veritabani[
                 (guncel_veritabani["Kullanıcı ID"] == st.session_state.user_id) & 
