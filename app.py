@@ -10,7 +10,6 @@ from datetime import datetime, timedelta
 # ==========================================
 st.set_page_config(page_title="Akıllı Tarım ve Otonom Sulama", layout="wide", page_icon="🌱")
 
-# 🌟 İŞTE BURASI: DOSYA ADINI GİZLEYEN AJAN CSS KODLARI 🌟
 st.markdown("""
     <style>
     html, body, [class*="css"]  {
@@ -36,12 +35,9 @@ st.markdown("""
         font-size: 2rem;
         color: #2e7d32;
     }
-    
-    /* YÜKLENEN DOSYANIN ADINI VE BOYUTUNU TAMAMEN GİZLE */
     [data-testid="stUploadedFile"] {
         display: none !important;
     }
-    /* Upload kutusunun içindeki 'Drag and drop' yazısını daha profesyonel yapalım */
     .css-1g5m0rc.e1b2p2ww12 {
         display: none;
     }
@@ -52,12 +48,16 @@ st.title("🌱 Akıllı Tarım ve Otonom Sulama Platformu")
 st.markdown("Bu sistem; **ESP32 ve DHT22** tabanlı çevresel sensör verilerini, **ESP32-CAM** üzerinden alınan otonom görüntülerle **Bütünleşik Yapay Zekâ** ortamında sentezleyerek noktasal sulama optimizasyonu ve **Proaktif Karar Destek** sunar.")
 
 # ==========================================
-# API KEY VE SİSTEM AYARLARI (YAN MENÜ)
+# YAN MENÜ: PROFİL VE SİSTEM AYARLARI
 # ==========================================
 with st.sidebar:
+    st.header("👤 Çiftçi / Profil Ayarları")
+    kullanici_adi = st.text_input("Kullanıcı Adı / İşletme", value="Demo Çiftçi")
+    bahce_adi = st.text_input("İzlenen Sera / Bahçe Adı", value="1 Nolu Sera (Genel)")
+    
+    st.divider()
     st.header("⚙️ Sistem Ayarları")
     
-    # YENİ KISIM: API anahtarını gizli kasadan çekiyoruz
     try:
         api_key = st.secrets["GEMINI_API_KEY"]
         st.success("🔑 Güvenli API Bağlantısı Aktif!")
@@ -70,10 +70,12 @@ with st.sidebar:
     st.write("Bulut Bağlantı Durumu: " + ("✅ Çevrimiçi (Firebase Senkronize)" if api_key else "🔴 API Bekleniyor"))
 
 # ==========================================
-# GEÇMİŞ VERİLER & CANLI SENSÖR HAFIZASI (pH Çıkarıldı)
+# GEÇMİŞ VERİLER & CANLI SENSÖR HAFIZASI
 # ==========================================
 if "history" not in st.session_state:
     st.session_state.history = pd.DataFrame({
+        "Kullanıcı": ["Demo Çiftçi", "Demo Çiftçi"],
+        "Bahçe/Sera": ["1 Nolu Sera (Genel)", "1 Nolu Sera (Genel)"],
         "Tarih": [(datetime.now() - timedelta(days=14)).strftime("%Y-%m-%d"),
                   (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")],
         "Ortam Sıcaklığı (°C)": [22.0, 24.5],
@@ -88,16 +90,19 @@ if "sensor_data" not in st.session_state:
         "soil": random.randint(20, 75)
     }
 
+# Kullanıcıya ait filtreli veriyi al (Sadece o an seçili bahçenin verilerini göstermek için)
+kullanici_verisi = st.session_state.history[st.session_state.history["Bahçe/Sera"] == bahce_adi]
+
 # ==========================================
-# SEKME DÜZENİ (3 SEKMELİ YAPI)
+# SEKME DÜZENİ
 # ==========================================
-tab1, tab2, tab3 = st.tabs(["📸 Anlık Analiz ve Veri Füzyonu", "📅 Gelişim Ajandası", "🔮 Proaktif Simülasyon "])
+tab1, tab2, tab3 = st.tabs(["📸 Anlık Analiz ve Veri Füzyonu", "📅 Gelişim Ajandası", "🔮 Proaktif Risk Tahmini"])
 
 # ------------------------------------------
 # SEKME 1: ANLIK ANALİZ
 # ------------------------------------------
 with tab1:
-    st.subheader("📊 IoT Sensör Ağı Canlı Akışı (ESP32 Düğümü)")
+    st.subheader(f"📊 IoT Sensör Ağı Canlı Akışı: {bahce_adi}")
     
     if st.button("📡 ESP32 Sensör Verilerini Çek"):
         st.session_state.sensor_data = {
@@ -105,7 +110,7 @@ with tab1:
             "hum": random.randint(20, 95),
             "soil": random.randint(10, 90)
         }
-        st.success("✅ Sahadaki kapasitif ve DHT22 sensörlerinden anlık güncel veriler çekildi!")
+        st.success(f"✅ {bahce_adi} sahasındaki kapasitif ve DHT22 sensörlerinden güncel veriler çekildi!")
 
     met_col1, met_col2, met_col3 = st.columns(3)
     met_col1.metric(label="🌡 Ortam Sıcaklığı", value=f"{st.session_state.sensor_data['temp']} °C")
@@ -117,7 +122,6 @@ with tab1:
     st.subheader("📷 ESP32-CAM Otonom Görüntü Girişi")
     image = None
     
-    # 🌟 İŞTE BURASI: KAMERA VE GİZLİ DOSYA MENÜSÜ 🌟
     with st.expander("Görsel Girişi", expanded=False):
         gorsel_secimi = st.radio("Analiz için görüntü kaynağı seçin:", ["📸 Canlı Kamera", "📁 Sistemden Yükle (Gizli)"], horizontal=True)
         
@@ -132,13 +136,13 @@ with tab1:
             if uploaded_file:
                 image = Image.open(uploaded_file)
                 st.success("✅ Görüntü güvenli bir şekilde belleğe alındı! Sekmeyi kapatabilirsiniz.")
-                st.image(image, caption="Veri Füzyonu İçin Aktarılan Görüntü", width="stretch")
+                st.image(image, caption=f"{bahce_adi} - Veri Füzyonu İçin Aktarılan Görüntü", width="stretch")
 
     st.divider()
 
     st.subheader("🤖 Multimodal Yapay Zekâ Analizi")
     
-    if st.button("Verileri Sentezle ve Noktasal Sulama Kararı Al", use_container_width=True):
+    if st.button(f"{bahce_adi} Verilerini Sentezle ve Karar Al", use_container_width=True):
         if not api_key:
             st.error("⚠️ Sistem API Anahtarı eksik! Lütfen yönetici ayarlarını kontrol edin.")
         elif not image:
@@ -147,16 +151,18 @@ with tab1:
             with st.spinner("Bulut veri tabanı ile bağlantı kuruluyor... Görüntü ve sensör verileri sentezleniyor..."):
                 try:
                     client = genai.Client(api_key=api_key)
-                    past_data_str = st.session_state.history.to_string(index=False)
+                    past_data_str = kullanici_verisi.to_string(index=False)
                     
                     c_temp = st.session_state.sensor_data['temp']
                     c_hum = st.session_state.sensor_data['hum']
                     c_soil = st.session_state.sensor_data['soil']
 
                     prompt = f"""
-                    Sen bu projenin temelini oluşturan, otonom kararlar alabilen bir "Multimodal Tarım Yapay Zekası"sın.
-                    Kullanıcı sana IoT sensör ağından (ESP32, DHT22, Kapasitif Nem Sensörü) gelen verileri ve ESP32-CAM'den alınan bitkinin güncel fotoğrafını sunuyor.
-                    Bu sistem karmaşık kimyasal/pH sensörleri kullanmaz; tamamen "su/nem stresi" ve "görsel deformasyonlara" odaklanarak su israfını önlemeyi (noktasal sulama) hedefler.
+                    Sen otonom kararlar alabilen bir "Multimodal Tarım Yapay Zekası"sın.
+                    Kullanıcı: {kullanici_adi}
+                    İncelenen Bölge: {bahce_adi}
+                    
+                    Kullanıcı sana {bahce_adi} bölgesindeki IoT sensör ağından gelen verileri ve ESP32-CAM'den alınan güncel fotoğrafı sunuyor.
 
                     GÖREV 1: SAHTELİK KONTROLÜ
                     Fotoğraftaki bitki SUNİ/YAPAY/PLASTİK ise sadece "[SAHTE]" yazıp sebebini 1 cümle ile açıkla.
@@ -167,10 +173,10 @@ with tab1:
                     - Hava Nemi: %{c_hum}
                     - Toprak Nemi: %{c_soil}
 
-                    [VERİ TABANI GEÇMİŞİ]
+                    [{bahce_adi} VERİ TABANI GEÇMİŞİ]
                     {past_data_str}
 
-                    Aşağıdaki başlıkları kullanarak profesyonel bir SaaS raporu oluştur:
+                    Aşağıdaki başlıkları kullanarak profesyonel bir SaaS raporu oluştur. Raporunda kullanıcıya ismiyle ({kullanici_adi}) hitap et ve bahçesine ({bahce_adi}) referans ver:
                     ### 🌿 Bitki Taksonomisi ve Görsel Stres Analizi
                     ### 📊 Sensör Füzyonu (Görsel ve Çevresel Veri Uyumu)
                     ### 📉 Su İhtiyacı ve Gelişim Trendi
@@ -189,12 +195,14 @@ with tab1:
                         aciklama = response_text.replace("[SAHTE]", "").strip()
                         st.info(f"🤖 AI Görsel Doğrulama: {aciklama}")
                     elif "[GERÇEK]" in response_text:
-                        st.success("✅ Veri Füzyonu Başarılı. Bitki doğrulandı ve bulut sunucuya senkronize edildi.")
+                        st.success(f"✅ Veri Füzyonu Başarılı. {bahce_adi} için bitki doğrulandı ve buluta kaydedildi.")
                         rapor = response_text.replace("[GERÇEK]", "").strip()
                         st.markdown(rapor)
 
-                        # Veritabanına yaz (pH olmadan)
+                        # Yeni veriyi veritabanına Kullanıcı ve Bahçe adıyla ekle
                         new_data = pd.DataFrame({
+                            "Kullanıcı": [kullanici_adi],
+                            "Bahçe/Sera": [bahce_adi],
                             "Tarih": [datetime.now().strftime("%Y-%m-%d")],
                             "Ortam Sıcaklığı (°C)": [c_temp],
                             "Hava Nemi (%)": [c_hum],
@@ -211,22 +219,25 @@ with tab1:
 # SEKME 2: AJANDA
 # ------------------------------------------
 with tab2:
-    st.subheader("📅 Bulut Veri Tabanı Kayıtları (Gelişim Ajandası)")
-    st.write("IoT ağından toplanıp yapay zeka tarafından doğrulanmış geçmiş sensör okumaları. Bu veriler sistemin SaaS abonelik modeline temel oluşturur.")
-    st.dataframe(st.session_state.history, use_container_width=True)
-
-    st.divider()
-    st.subheader("📉 Çevresel Parametrelerin Zaman Serisi Analizi")
-    chart_data = st.session_state.history.set_index("Tarih")[["Ortam Sıcaklığı (°C)", "Hava Nemi (%)", "Toprak Nemi (%)"]]
-    st.line_chart(chart_data)
-
+    st.subheader(f"📅 Bulut Veri Tabanı: {bahce_adi} Kayıtları")
+    st.write(f"Sayın **{kullanici_adi}**, aşağıda sadece **{bahce_adi}** için toplanıp yapay zeka tarafından doğrulanmış geçmiş sensör okumaları listelenmektedir.")
+    
+    # Sadece o kullanıcının/bahçenin verilerini göster
+    if not kullanici_verisi.empty:
+        st.dataframe(kullanici_verisi, use_container_width=True)
+        st.divider()
+        st.subheader("📉 Çevresel Parametrelerin Zaman Serisi Analizi")
+        chart_data = kullanici_verisi.set_index("Tarih")[["Ortam Sıcaklığı (°C)", "Hava Nemi (%)", "Toprak Nemi (%)"]]
+        st.line_chart(chart_data)
+    else:
+        st.info(f"ℹ️ Henüz **{bahce_adi}** için bulutta kayıtlı bir geçmiş veri bulunmamaktadır. İlk analizi 'Anlık Analiz' sekmesinden yapabilirsiniz.")
 
 # ------------------------------------------
 # SEKME 3: SİMÜLASYON VE ERKEN UYARI
 # ------------------------------------------
 with tab3:
-    st.subheader("🔮 Proaktif Karar Destek ve Su Stresi Simülasyonu")
-    st.info("💡 **Özgünlük Bildirimi:** Bu modül, sensörlerden alınan verilerin gelecekteki olası senaryolarını manuel test ederek, bitki su stresine girmeden veya fiziksel semptomlar oluşmadan önce gerekli otonom müdahaleleri planlar.")
+    st.subheader("🔮 Proaktif Karar Destek ve Risk Tahmini")
+    st.info(f"💡 **Özgünlük Bildirimi:** Bu modül, {bahce_adi} için gelecekteki olası hava senaryolarını test ederek, fiziksel semptomlar oluşmadan önce otonom müdahaleleri planlar.")
 
     col3, col4 = st.columns(2)
     with col3:
@@ -236,18 +247,21 @@ with tab3:
         sim_soil = st.slider("Tahmini Toprak Nemi (%)", 0.0, 100.0, 15.0, step=1.0, key="sim_soil")
         sim_days = st.selectbox("Kaç Gün Sonrası İçin Tahmin Yapılsın?", [1,3,4,5,6,7,8,9,10,11,12,13,14], key="sim_days")
 
-    if st.button(f"⏳ {sim_days} Günlük Geleceği Simüle Et", use_container_width=True):
+    if st.button(f"⏳ {bahce_adi} İçin {sim_days} Günlük Geleceği Simüle Et", use_container_width=True):
         if not api_key:
             st.error("⚠️ Sistem API Anahtarı eksik! Lütfen yönetici ayarlarını kontrol edin.")
         else:
-            with st.spinner("Yapay zeka su israfı risklerini ve hastalık ihtimallerini hesaplıyor..."):
+            with st.spinner("Yapay zeka riskleri ve hastalık ihtimallerini hesaplıyor..."):
                 try:
                     client = genai.Client(api_key=api_key)
-                    past_data_str = st.session_state.history.to_string(index=False)
+                    past_data_str = kullanici_verisi.to_string(index=False)
 
                     sim_prompt = f"""
                     Sen bitki hastalıklarını ve su stresini önceden tahmin eden proaktif bir Karar Destek Sistemisin.
-                    Kullanıcının SaaS veritabanında şu anki geçmiş verileri var:
+                    Müşteri: {kullanici_adi}
+                    Analiz Edilen Bölge: {bahce_adi}
+                    
+                    Kullanıcının veritabanında {bahce_adi} için şu anki geçmiş verileri var:
                     {past_data_str}
 
                     Kullanıcı sana gelecekteki ({sim_days} gün sonraki) senaryoyu veriyor:
@@ -256,8 +270,8 @@ with tab3:
                     - Beklenen Toprak Nemi: %{sim_soil}
 
                     GÖREV:
-                    Bu gelecek senaryosu gerçekleşirse bitkide su eksikliği, mantar, kök çürüklüğü gibi ne tür RİSKLER ortaya çıkar?
-                    Cevabında karmaşık kimyasal/pH düzeltmelerinden bahsetme; odağın tamamen sulama rejimi, ortam iklimlendirmesi ve erken müdahale olmalı.
+                    Bu gelecek senaryosu gerçekleşirse {bahce_adi} bölgesinde su eksikliği, mantar, kök çürüklüğü gibi ne tür RİSKLER ortaya çıkar?
+                    Raporunda kullanıcıya ({kullanici_adi}) hitap ederek profesyonel tavsiyeler ver.
 
                     KURAL (ÇOK ÖNEMLİ):
                     Eğer bu veriler kritik bir kuruma veya hastalık riski taşıyorsa, cevabının EN BAŞINA şu etiketi KESİNLİKLE koy:
@@ -283,7 +297,7 @@ with tab3:
                         
                         st.markdown(f"""
                         <div class="hastalik-alarm">
-                            🚨 KRİTİK ERKEN UYARI: Karar Destek Sistemi yaklaşan bir <b>{hastalik_adi}</b> tehlikesi tespit etti!<br>
+                            🚨 KRİTİK ERKEN UYARI: Karar Destek Sistemi {bahce_adi} için yaklaşan bir <b>{hastalik_adi}</b> tehlikesi tespit etti!<br>
                             Semptomlar bitki üzerinde görülmeden otonom sulama/iklimlendirme müdahalesi gereklidir!
                         </div>
                         """, unsafe_allow_html=True)
@@ -292,7 +306,7 @@ with tab3:
                         st.markdown(temiz_rapor)
                         
                     else:
-                        st.success("✅ Otonom Kontrol: Belirtilen gelecek senaryosunda kritik bir risk veya su stresi tespit edilmedi. Değerler güvenli sınırlarda.")
+                        st.success(f"✅ Otonom Kontrol: {bahce_adi} için belirtilen gelecek senaryosunda kritik bir risk tespit edilmedi. Değerler güvenli sınırlarda.")
                         st.markdown(sim_text)
 
                 except Exception as e:
