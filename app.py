@@ -5,6 +5,7 @@ import pandas as pd
 import random
 import os
 import json
+import requests # YENİ: Firebase'den veri çekmek için eklendi!
 from datetime import datetime
 
 # ==========================================
@@ -55,6 +56,36 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # ==========================================
+# FIREBASE AYARLARI
+# ==========================================
+# ESP32'nin veri yolladığı URL'nin sonuna ".json" eklemeliyiz!
+FIREBASE_URL = "https://botanix-iot-default-rtdb.europe-west1.firebasedatabase.app/botanix_sensor.json"
+
+def get_sensor_data_from_firebase():
+    """Buluttaki veritabanından ESP32'nin son ölçümlerini okur."""
+    try:
+        response = requests.get(FIREBASE_URL)
+        if response.status_code == 200:
+            data = response.json()
+            if data:
+                # Toprak nemi ESP32'den gelir. Sıcaklık ve hava nemi (DHT22 takılana kadar) şimdilik simüle edilir.
+                # İleride DHT22 takınca onları da data.get("sicaklik") şeklinde alacaksın.
+                return {
+                    "soil": data.get("toprak_nemi", 0), 
+                    "temp": data.get("ortam_sicakligi", 25), # Şimdilik varsayılan
+                    "hum": data.get("hava_nemi", 55) # Şimdilik varsayılan
+                }
+            else:
+                 st.warning("⚠️ Firebase'de veri bulunamadı. Lütfen ESP32'nin çalıştığından emin olun.")
+        else:
+             st.error(f"⚠️ Firebase Bağlantı Hatası: {response.status_code}")
+    except Exception as e:
+        st.error(f"⚠️ Sunucuya erişilemiyor: {e}")
+    
+    return None # Hata varsa None döner
+
+
+# ==========================================
 # 1. KALICI VERİTABANI YÖNETİMİ (CSV)
 # ==========================================
 CSV_FILE = "tarim_veritabani.csv"
@@ -77,7 +108,6 @@ def save_to_database(new_row_df):
 # ==========================================
 USERS_FILE = "kullanicilar.json"
 
-# BURAYI İSTEDİĞİN ZAMAN GÜNCELLEYEBİLİRSİN!
 DEFAULT_USERS = {
     "TR-1000": {"ad": "Meryem Derin", "bahceler": ["Konya Merkez Lale Serası", "Çumra Domates Tesisleri"]},
     "TR-1001": {"ad": "Melih Geylani", "bahceler": ["Ereğli Organik Çilek"]},
@@ -87,44 +117,34 @@ DEFAULT_USERS = {
 }
 
 def load_and_sync_users():
-    """Koddaki listeyi, dosyadaki listeyle akıllıca birleştirir."""
-    # 1. Eğer dosya hiç yoksa, direkt koddakini yaz ve dön
     if not os.path.exists(USERS_FILE):
         with open(USERS_FILE, "w", encoding="utf-8") as f:
             json.dump(DEFAULT_USERS, f, ensure_ascii=False, indent=4)
         return DEFAULT_USERS
     
-    # 2. Dosya varsa oku
     with open(USERS_FILE, "r", encoding="utf-8") as f:
         kayitli_kullanicilar = json.load(f)
         
     guncellendi_mi = False
     
-    # 3. Koddaki yeni kişileri veya isim değişikliklerini dosyaya aktar
     for user_id, data in DEFAULT_USERS.items():
         if user_id not in kayitli_kullanicilar:
-            # Yeni bir ID eklenmiş!
             kayitli_kullanicilar[user_id] = data
             guncellendi_mi = True
         else:
-            # ID var ama adı değişmiş olabilir (Örn: Juri1 -> Ahmet Hoca)
             if kayitli_kullanicilar[user_id]["ad"] != data["ad"]:
                 kayitli_kullanicilar[user_id]["ad"] = data["ad"]
                 guncellendi_mi = True
-            
-            # Koddaki yeni bahçeleri de ekle (Kullanıcının kendi eklediği bahçeleri silmeden!)
             for bahce in data["bahceler"]:
                 if bahce not in kayitli_kullanicilar[user_id]["bahceler"]:
                     kayitli_kullanicilar[user_id]["bahceler"].append(bahce)
                     guncellendi_mi = True
                     
-    # 4. KODDAN SİLİNEN kişileri dosyadan da sil
     silinecek_idler = [uid for uid in kayitli_kullanicilar if uid not in DEFAULT_USERS]
     for uid in silinecek_idler:
         del kayitli_kullanicilar[uid]
         guncellendi_mi = True
 
-    # 5. Eğer bir değişiklik olduysa dosyayı ez/kaydet
     if guncellendi_mi:
         with open(USERS_FILE, "w", encoding="utf-8") as f:
             json.dump(kayitli_kullanicilar, f, ensure_ascii=False, indent=4)
@@ -135,7 +155,6 @@ def save_users(users_dict):
     with open(USERS_FILE, "w", encoding="utf-8") as f:
         json.dump(users_dict, f, ensure_ascii=False, indent=4)
 
-# Uygulama başlarken kullanıcıları eşitle
 GUNCEL_KULLANICILAR = load_and_sync_users()
 
 # ==========================================
@@ -154,7 +173,7 @@ if "kullanici_bahceleri" not in st.session_state:
 if "is_guest" not in st.session_state:
     st.session_state.is_guest = False
 if "sensor_data" not in st.session_state:
-    st.session_state.sensor_data = {"temp": 24, "hum": 50, "soil": 40}
+    st.session_state.sensor_data = {"temp": 0, "hum": 0, "soil": 0} # Başlangıçta sıfır
 
 # ==========================================
 # EKRAN 1: GİRİŞ EKRANI (LOGIN)
@@ -197,7 +216,6 @@ if not st.session_state.logged_in:
 # EKRAN 2: ANA UYGULAMA (GİRİŞ YAPILDIYSA)
 # ==========================================
 else:
-    # --- YAN MENÜ VE BAHÇE YÖNETİMİ ---
     with st.sidebar:
         st.header("👤 Profil Bilgileri")
         st.success(f"Hoş geldin, **{st.session_state.user_name}**")
@@ -223,11 +241,9 @@ else:
                     if yeni_bahce_adi and yeni_bahce_adi not in st.session_state.kullanici_bahceleri:
                         st.session_state.kullanici_bahceleri.append(yeni_bahce_adi)
                         st.session_state.aktif_bahce = yeni_bahce_adi
-                        
                         GUNCEL_KULLANICILAR[st.session_state.user_id]["bahceler"].append(yeni_bahce_adi)
                         save_users(GUNCEL_KULLANICILAR)
-                        
-                        st.success(f"{yeni_bahce_adi} başarıyla eklendi ve sisteme kaydedildi!")
+                        st.success(f"{yeni_bahce_adi} eklendi ve sisteme kaydedildi!")
                         st.rerun()
                     elif yeni_bahce_adi in st.session_state.kullanici_bahceleri:
                         st.warning("Bu bölge zaten kayıtlı.")
@@ -268,13 +284,16 @@ else:
     with tab1:
         st.subheader(f"📊 IoT Sensör Ağı Canlı Akışı: {st.session_state.aktif_bahce}")
         
+        # SİHİRLİ BUTON: ARTIK GERÇEK BULUT VERİSİ ÇEKİYOR!
         if st.button("📡 ESP32 Sensör Verilerini Çek"):
-            st.session_state.sensor_data = {
-                "temp": random.randint(10, 42),
-                "hum": random.randint(20, 95),
-                "soil": random.randint(10, 90)
-            }
-            st.success(f"✅ {st.session_state.aktif_bahce} sensörlerinden güncel veriler çekildi!")
+            with st.spinner("Sahadaki ESP32 ile bulut üzerinden haberleşiliyor..."):
+                gercek_veri = get_sensor_data_from_firebase()
+                
+                if gercek_veri:
+                    st.session_state.sensor_data = gercek_veri
+                    st.success(f"✅ {st.session_state.aktif_bahce} sensörlerinden GÜNCEL VERİLER ÇEKİLDİ!")
+                else:
+                    st.error("ESP32 verisi alınamadı. Sensörün internete bağlı olduğundan emin olun.")
 
         met_col1, met_col2, met_col3 = st.columns(3)
         met_col1.metric(label="🌡 Ortam Sıcaklığı", value=f"{st.session_state.sensor_data['temp']} °C")
