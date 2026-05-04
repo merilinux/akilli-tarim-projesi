@@ -212,7 +212,7 @@ if not st.session_state.logged_in:
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # --- MÜKERRER KAYIT KONTROLLÜ YENİ ÜYE ALANI ---
+    # --- MÜKERRER KAYIT KONTROLLÜ VE ORTALANMIŞ BUTONLU YENİ ÜYE ALANI ---
     st.markdown("<br>", unsafe_allow_html=True)
     with st.expander("📝 Sistemi Kullanmaya Başlayın: Yeni Çiftçi Kaydı Oluştur", expanded=False):
         st.markdown('<span class="section-label">Ücretsiz Ön Kayıt</span>', unsafe_allow_html=True)
@@ -221,14 +221,19 @@ if not st.session_state.logged_in:
         yeni_tel = st.text_input("Telefon Numarası", placeholder="Örn: 0555 123 4567")
         yeni_bahce = st.text_input("İlk Saha/Sera Adı", placeholder="Örn: Konya Merkez Lale Serası")
         
-        if st.button("Sisteme Kayıt Ol", use_container_width=True):
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        col_bosluk1, col_buton, col_bosluk2 = st.columns([1, 2, 1])
+        
+        with col_buton:
+            kayit_tiklandi = st.button("Sisteme Kayıt Ol", use_container_width=True)
+            
+        if kayit_tiklandi:
             if yeni_ad and yeni_tel and yeni_bahce:
-                # Telefon numarasındaki boşlukları silerek kontrol et (555 111 22 33 == 5551112233)
                 temiz_yeni_tel = yeni_tel.replace(" ", "")
                 numara_kayitli_mi = False
                 kayitli_id = ""
 
-                # Veritabanında numara taraması (Dedektiflik kısmı)
                 for uid, veriler in GUNCEL_KULLANICILAR.items():
                     if veriler.get("telefon", "").replace(" ", "") == temiz_yeni_tel:
                         numara_kayitli_mi = True
@@ -238,7 +243,6 @@ if not st.session_state.logged_in:
                 if numara_kayitli_mi:
                     st.error(f"🚨 HATA: Bu telefon numarası sisteme zaten kayıtlı! Lütfen Müşteri ID'niz (**{kayitli_id}**) ile yukarıdan giriş yapınız.")
                 else:
-                    # Numara benzersizse, yeni TR-XXXX ID'si oluştur
                     while True:
                         yeni_id = f"TR-{random.randint(2000, 9999)}"
                         if yeni_id not in GUNCEL_KULLANICILAR:
