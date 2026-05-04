@@ -9,7 +9,7 @@ import requests
 from datetime import datetime
 
 # ==========================================
-# SAYFA AYARLARI VE DİNAMİK TASARIM (CSS)
+# SAYFA AYARLARI VE ŞEFFAF/ESNEK TASARIM (CSS)
 # ==========================================
 st.set_page_config(page_title="Botanix — Akıllı Tarım", layout="wide", page_icon="🌿")
 
@@ -17,56 +17,14 @@ st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500;600&display=swap');
 
-    /* AÇIK TEMA (VARSAYILAN) DEĞİŞKENLERİ */
-    :root {
-        --bg-main: #f4f9f4;
-        --bg-grad-1: #e8f5e9;
-        --bg-grad-2: #c8e6c9;
-        --text-main: #1b3320;
-        --text-muted: #2e7d32;
-        --primary-color: #2e7d32;
-        --card-bg: rgba(255, 255, 255, 0.85);
-        --card-border: rgba(46, 125, 50, 0.2);
-        --metric-bg: linear-gradient(145deg, rgba(232,245,233,1), rgba(200,230,201,0.6));
-        --metric-val: #1b5e20;
-        --input-bg: rgba(255, 255, 255, 0.9);
-        --sidebar-bg: linear-gradient(180deg, #e8f5e9 0%, #c8e6c9 100%);
-    }
-
-    /* KOYU TEMA DEĞİŞKENLERİ (Sistem Koyu Moddaysa Otomatik Geçer) */
-    @media (prefers-color-scheme: dark) {
-        :root {
-            --bg-main: #0d1a0e;
-            --bg-grad-1: #0f2311;
-            --bg-grad-2: #0a1a10;
-            --text-main: #e8f5e9;
-            --text-muted: #81c784;
-            --primary-color: #81c784;
-            --card-bg: rgba(255, 255, 255, 0.03);
-            --card-border: rgba(165, 214, 167, 0.15);
-            --metric-bg: linear-gradient(145deg, rgba(46,125,50,0.15), rgba(27,94,32,0.08));
-            --metric-val: #c8e6c9;
-            --input-bg: rgba(255, 255, 255, 0.05);
-            --sidebar-bg: linear-gradient(180deg, #0a1f0b 0%, #0d2610 100%);
-        }
-    }
-
     html, body, [class*="css"] {
         font-family: 'DM Sans', sans-serif;
-        background-color: var(--bg-main) !important;
-        color: var(--text-main) !important;
-    }
-
-    /* ARKA PLAN */
-    .stApp {
-        background: linear-gradient(135deg, var(--bg-grad-1) 0%, var(--bg-main) 40%, var(--bg-grad-2) 100%);
-        background-attachment: fixed;
     }
 
     /* BAŞLIKLAR */
     h1, h2, h3, h4 {
         font-family: 'Playfair Display', serif;
-        color: var(--primary-color);
+        color: #4caf50;
         letter-spacing: -0.02em;
     }
 
@@ -79,60 +37,14 @@ st.markdown("""
         background-clip: text;
     }
 
-    /* TAB STİLİ */
-    .stTabs [data-baseweb="tab-list"] {
-        background: var(--card-bg);
-        border-radius: 14px;
-        padding: 6px;
-        gap: 4px;
-        border: 1px solid var(--card-border);
-    }
-    .stTabs [data-baseweb="tab"] {
-        border-radius: 10px;
-        padding: 10px 22px;
-        font-weight: 500;
-        color: var(--primary-color);
-        background: transparent;
-    }
-    .stTabs [aria-selected="true"] {
-        background: linear-gradient(135deg, #2e7d32, #388e3c) !important;
-        color: #ffffff !important;
-    }
-
-    /* METRİK KUTULARI */
-    [data-testid="metric-container"] {
-        background: var(--metric-bg);
-        border: 1px solid var(--card-border);
-        border-radius: 16px;
-        padding: 20px 24px;
-        backdrop-filter: blur(10px);
-    }
-    [data-testid="stMetricLabel"] {
-        font-weight: 600;
-        text-transform: uppercase;
-        color: var(--primary-color) !important;
-    }
-    [data-testid="stMetricValue"] {
-        font-family: 'Playfair Display', serif;
-        font-size: 2.2rem !important;
-        color: var(--metric-val) !important;
-        font-weight: 700;
-    }
-
-    /* SIDEBAR */
-    [data-testid="stSidebar"] {
-        background: var(--sidebar-bg) !important;
-        border-right: 1px solid var(--card-border);
-    }
-
-    /* INPUT ALANLARI */
-    .stTextInput > div > div > input,
-    .stSelectbox > div > div,
-    .stTextArea > div > div > textarea {
-        background: var(--input-bg) !important;
-        border: 1px solid var(--card-border) !important;
-        color: var(--text-main) !important;
-        border-radius: 10px !important;
+    /* KART KUTULARI (Cam Efekti - Hem Açık Hem Koyu Temaya Uyar) */
+    .login-card, .metric-box, [data-testid="metric-container"] {
+        background: rgba(76, 175, 80, 0.08) !important;
+        border: 1px solid rgba(76, 175, 80, 0.2) !important;
+        border-radius: 16px !important;
+        padding: 24px !important;
+        backdrop-filter: blur(10px) !important;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05) !important;
     }
 
     /* BÖLÜM BAŞLIKLARI */
@@ -142,18 +54,17 @@ st.markdown("""
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.14em;
-        color: var(--primary-color);
+        color: #4caf50;
         margin-bottom: 12px;
         display: block;
     }
 
-    /* KART KUTULARI */
-    .login-card {
-        background: var(--card-bg);
-        border: 1px solid var(--card-border);
-        border-radius: 18px;
-        padding: 28px 24px;
-        backdrop-filter: blur(12px);
+    /* INPUT VE BUTONLARIN ŞEFFAFLAŞTIRILMASI */
+    .stTextInput > div > div > input,
+    .stSelectbox > div > div {
+        background: rgba(128, 128, 128, 0.05) !important;
+        border: 1px solid rgba(76, 175, 80, 0.3) !important;
+        border-radius: 10px !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -222,8 +133,6 @@ def load_and_sync_users():
         
     guncellendi_mi = False
     
-    # Sadece varsayılan kullanıcıların eksik bilgilerini tamamlar. 
-    # DİKKAT: Artık organik üye olanları SİLMİYORUZ!
     for user_id, data in DEFAULT_USERS.items():
         if user_id not in kayitli_kullanicilar:
             kayitli_kullanicilar[user_id] = data
@@ -303,7 +212,7 @@ if not st.session_state.logged_in:
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # --- YENİ EKLENEN KAYIT ALANI ---
+    # --- MÜKERRER KAYIT KONTROLLÜ YENİ ÜYE ALANI ---
     st.markdown("<br>", unsafe_allow_html=True)
     with st.expander("📝 Sistemi Kullanmaya Başlayın: Yeni Çiftçi Kaydı Oluştur", expanded=False):
         st.markdown('<span class="section-label">Ücretsiz Ön Kayıt</span>', unsafe_allow_html=True)
@@ -314,22 +223,36 @@ if not st.session_state.logged_in:
         
         if st.button("Sisteme Kayıt Ol", use_container_width=True):
             if yeni_ad and yeni_tel and yeni_bahce:
-                # Rastgele, benzersiz bir ID oluştur (TR-XXXX formatında)
-                while True:
-                    yeni_id = f"TR-{random.randint(2000, 9999)}"
-                    if yeni_id not in GUNCEL_KULLANICILAR:
+                # Telefon numarasındaki boşlukları silerek kontrol et (555 111 22 33 == 5551112233)
+                temiz_yeni_tel = yeni_tel.replace(" ", "")
+                numara_kayitli_mi = False
+                kayitli_id = ""
+
+                # Veritabanında numara taraması (Dedektiflik kısmı)
+                for uid, veriler in GUNCEL_KULLANICILAR.items():
+                    if veriler.get("telefon", "").replace(" ", "") == temiz_yeni_tel:
+                        numara_kayitli_mi = True
+                        kayitli_id = uid
                         break
-                
-                # Kullanıcıyı sözlüğe ekle ve JSON dosyasına kaydet
-                GUNCEL_KULLANICILAR[yeni_id] = {
-                    "ad": yeni_ad, 
-                    "telefon": yeni_tel, 
-                    "bahceler": [yeni_bahce]
-                }
-                save_users(GUNCEL_KULLANICILAR)
-                
-                st.success(f"🎉 Kayıt Başarılı! Sisteme Giriş ID'niz: **{yeni_id}**")
-                st.info("Lütfen bu ID'yi not alın. Yukarıdaki 'Kayıtlı Çiftçi Girişi' panelinden giriş yapabilirsiniz.")
+
+                if numara_kayitli_mi:
+                    st.error(f"🚨 HATA: Bu telefon numarası sisteme zaten kayıtlı! Lütfen Müşteri ID'niz (**{kayitli_id}**) ile yukarıdan giriş yapınız.")
+                else:
+                    # Numara benzersizse, yeni TR-XXXX ID'si oluştur
+                    while True:
+                        yeni_id = f"TR-{random.randint(2000, 9999)}"
+                        if yeni_id not in GUNCEL_KULLANICILAR:
+                            break
+                    
+                    GUNCEL_KULLANICILAR[yeni_id] = {
+                        "ad": yeni_ad, 
+                        "telefon": temiz_yeni_tel, 
+                        "bahceler": [yeni_bahce]
+                    }
+                    save_users(GUNCEL_KULLANICILAR)
+                    
+                    st.success(f"🎉 Kayıt Başarılı! Sisteme Giriş ID'niz: **{yeni_id}**")
+                    st.info("Lütfen bu ID'yi not alın. Sayfayı yenileyip yukarıdaki 'Kayıtlı Çiftçi Girişi' panelinden giriş yapabilirsiniz.")
             else:
                 st.warning("Lütfen tüm alanları eksiksiz doldurunuz.")
 
@@ -338,12 +261,9 @@ if not st.session_state.logged_in:
 # ==========================================
 else:
     with st.sidebar:
-        # Profil
         st.markdown(f"""
-        <div style="background:var(--card-bg); border:1px solid var(--card-border);
-                    border-radius:14px; padding:16px; margin-bottom:16px;">
-            <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.12em;
-                        color:var(--primary-color);font-weight:700;margin-bottom:6px;">Aktif Oturum</div>
+        <div class="login-card" style="margin-bottom:16px;">
+            <div class="section-label" style="font-size:0.7rem; margin-bottom:6px;">Aktif Oturum</div>
             <div style="font-size:1.05rem;font-weight:600;margin-bottom:2px;">
                 {st.session_state.user_name}
             </div>
@@ -393,7 +313,6 @@ else:
             api_key = None
             st.error("⚠️ API Anahtarı Eksik")
 
-    # BAŞLIK
     st.markdown(f"""
     <div style="margin-bottom:8px;">
         <h1 style="margin-bottom:4px;">🌿 Botanix</h1>
@@ -415,9 +334,6 @@ else:
 
     tab1, tab2, tab3 = st.tabs(["📸  Anlık Analiz", "📅  Gelişim Ajandası", "🔮  Proaktif Risk Tahmini"])
 
-    # ------------------------------------------
-    # SEKME 1: ANLIK ANALİZ
-    # ------------------------------------------
     with tab1:
         st.markdown(f'<span class="section-label">📡 IoT Sensör Ağı — {st.session_state.aktif_bahce}</span>', unsafe_allow_html=True)
 
@@ -529,9 +445,6 @@ else:
                     except Exception as e:
                         st.error(f"Sistem Hatası: {e}")
 
-    # ------------------------------------------
-    # SEKME 2: AJANDA
-    # ------------------------------------------
     with tab2:
         st.markdown(f'<span class="section-label">📅 Kalıcı Veri Tabanı — {st.session_state.aktif_bahce}</span>', unsafe_allow_html=True)
         
@@ -555,9 +468,6 @@ else:
             else:
                 st.info(f"ℹ️ {st.session_state.aktif_bahce} için henüz kayıt yok. İlk analizi 'Anlık Analiz' sekmesinden başlatın.")
 
-    # ------------------------------------------
-    # SEKME 3: SİMÜLASYON VE ERKEN UYARI
-    # ------------------------------------------
     with tab3:
         st.markdown(f'<span class="section-label">🔮 Proaktif Karar Destek — {st.session_state.aktif_bahce}</span>', unsafe_allow_html=True)
         col3, col4 = st.columns(2, gap="large")
@@ -606,7 +516,7 @@ else:
                             start_idx = sim_text.find("[HASTALIK_ALARM:") + 16
                             end_idx = sim_text.find("]", start_idx)
                             hastalik_adi = sim_text[start_idx:end_idx].strip()
-                            st.markdown(f'<div class="hastalik-alarm">🚨 KRİTİK ERKEN UYARI — {hastalik_adi} tehlikesi tespit edildi!</div>', unsafe_allow_html=True)
+                            st.markdown(f'<div style="background: rgba(244, 67, 54, 0.1); border-left: 4px solid #f44336; padding: 15px; border-radius: 8px; margin-bottom: 20px;">🚨 KRİTİK ERKEN UYARI — {hastalik_adi} tehlikesi tespit edildi!</div>', unsafe_allow_html=True)
                             st.markdown(sim_text[end_idx+1:].strip())
                         else:
                             st.success("✅ Risk tespit edilmedi.")
