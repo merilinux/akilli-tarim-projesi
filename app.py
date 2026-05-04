@@ -9,7 +9,7 @@ import requests
 from datetime import datetime
 
 # ==========================================
-# SAYFA AYARLARI VE ELİT TASARIM (CSS)
+# SAYFA AYARLARI VE DİNAMİK TASARIM (CSS)
 # ==========================================
 st.set_page_config(page_title="Botanix — Akıllı Tarım", layout="wide", page_icon="🌿")
 
@@ -17,29 +17,63 @@ st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500;600&display=swap');
 
+    /* AÇIK TEMA (VARSAYILAN) DEĞİŞKENLERİ */
+    :root {
+        --bg-main: #f4f9f4;
+        --bg-grad-1: #e8f5e9;
+        --bg-grad-2: #c8e6c9;
+        --text-main: #1b3320;
+        --text-muted: #2e7d32;
+        --primary-color: #2e7d32;
+        --card-bg: rgba(255, 255, 255, 0.85);
+        --card-border: rgba(46, 125, 50, 0.2);
+        --metric-bg: linear-gradient(145deg, rgba(232,245,233,1), rgba(200,230,201,0.6));
+        --metric-val: #1b5e20;
+        --input-bg: rgba(255, 255, 255, 0.9);
+        --sidebar-bg: linear-gradient(180deg, #e8f5e9 0%, #c8e6c9 100%);
+    }
+
+    /* KOYU TEMA DEĞİŞKENLERİ (Sistem Koyu Moddaysa Otomatik Geçer) */
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --bg-main: #0d1a0e;
+            --bg-grad-1: #0f2311;
+            --bg-grad-2: #0a1a10;
+            --text-main: #e8f5e9;
+            --text-muted: #81c784;
+            --primary-color: #81c784;
+            --card-bg: rgba(255, 255, 255, 0.03);
+            --card-border: rgba(165, 214, 167, 0.15);
+            --metric-bg: linear-gradient(145deg, rgba(46,125,50,0.15), rgba(27,94,32,0.08));
+            --metric-val: #c8e6c9;
+            --input-bg: rgba(255, 255, 255, 0.05);
+            --sidebar-bg: linear-gradient(180deg, #0a1f0b 0%, #0d2610 100%);
+        }
+    }
+
     html, body, [class*="css"] {
         font-family: 'DM Sans', sans-serif;
-        background-color: #0d1a0e;
-        color: #e8f5e9;
+        background-color: var(--bg-main) !important;
+        color: var(--text-main) !important;
     }
 
     /* ARKA PLAN */
     .stApp {
-        background: linear-gradient(135deg, #0d1a0e 0%, #0f2311 40%, #0a1a10 100%);
+        background: linear-gradient(135deg, var(--bg-grad-1) 0%, var(--bg-main) 40%, var(--bg-grad-2) 100%);
         background-attachment: fixed;
     }
 
     /* BAŞLIKLAR */
     h1, h2, h3, h4 {
         font-family: 'Playfair Display', serif;
-        color: #a5d6a7;
+        color: var(--primary-color);
         letter-spacing: -0.02em;
     }
 
     /* ANA TITLE */
     .stApp > header + div h1 {
         font-size: 2.6rem;
-        background: linear-gradient(90deg, #81c784, #c8e6c9, #66bb6a);
+        background: linear-gradient(90deg, #4caf50, #81c784, #2e7d32);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
@@ -47,308 +81,80 @@ st.markdown("""
 
     /* TAB STİLİ */
     .stTabs [data-baseweb="tab-list"] {
-        background: rgba(255,255,255,0.04);
+        background: var(--card-bg);
         border-radius: 14px;
         padding: 6px;
         gap: 4px;
-        border: 1px solid rgba(165,214,167,0.15);
+        border: 1px solid var(--card-border);
     }
     .stTabs [data-baseweb="tab"] {
         border-radius: 10px;
         padding: 10px 22px;
-        font-family: 'DM Sans', sans-serif;
         font-weight: 500;
-        font-size: 0.88rem;
-        color: #81c784;
+        color: var(--primary-color);
         background: transparent;
-        transition: all 0.25s ease;
     }
     .stTabs [aria-selected="true"] {
         background: linear-gradient(135deg, #2e7d32, #388e3c) !important;
         color: #ffffff !important;
-        box-shadow: 0 4px 20px rgba(46,125,50,0.4);
     }
 
     /* METRİK KUTULARI */
     [data-testid="metric-container"] {
-        background: linear-gradient(145deg, rgba(46,125,50,0.15), rgba(27,94,32,0.08));
-        border: 1px solid rgba(165,214,167,0.2);
+        background: var(--metric-bg);
+        border: 1px solid var(--card-border);
         border-radius: 16px;
         padding: 20px 24px;
         backdrop-filter: blur(10px);
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
-    [data-testid="metric-container"]:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 12px 30px rgba(46,125,50,0.25);
     }
     [data-testid="stMetricLabel"] {
-        font-family: 'DM Sans', sans-serif;
-        font-size: 0.8rem;
-        font-weight: 500;
+        font-weight: 600;
         text-transform: uppercase;
-        letter-spacing: 0.08em;
-        color: #81c784 !important;
-        opacity: 0.85;
+        color: var(--primary-color) !important;
     }
     [data-testid="stMetricValue"] {
         font-family: 'Playfair Display', serif;
         font-size: 2.2rem !important;
-        color: #c8e6c9 !important;
+        color: var(--metric-val) !important;
         font-weight: 700;
-    }
-
-    /* BUTONLAR */
-    .stButton > button {
-        background: linear-gradient(135deg, #2e7d32, #43a047);
-        color: #ffffff;
-        border: none;
-        border-radius: 12px;
-        padding: 12px 28px;
-        font-family: 'DM Sans', sans-serif;
-        font-weight: 600;
-        font-size: 0.9rem;
-        letter-spacing: 0.03em;
-        transition: all 0.25s ease;
-        box-shadow: 0 4px 15px rgba(46,125,50,0.3);
-        position: relative;
-        overflow: hidden;
-    }
-    .stButton > button:hover {
-        background: linear-gradient(135deg, #388e3c, #4caf50);
-        transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(46,125,50,0.45);
-    }
-    .stButton > button:active {
-        transform: translateY(0);
     }
 
     /* SIDEBAR */
     [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #0a1f0b 0%, #0d2610 100%) !important;
-        border-right: 1px solid rgba(165,214,167,0.12);
-    }
-    [data-testid="stSidebar"] h2, [data-testid="stSidebar"] h3 {
-        font-size: 0.78rem;
-        text-transform: uppercase;
-        letter-spacing: 0.12em;
-        color: #66bb6a;
-        font-family: 'DM Sans', sans-serif;
-        font-weight: 600;
-        margin-bottom: 8px;
-    }
-    [data-testid="stSidebarContent"] {
-        padding: 24px 16px;
+        background: var(--sidebar-bg) !important;
+        border-right: 1px solid var(--card-border);
     }
 
     /* INPUT ALANLARI */
     .stTextInput > div > div > input,
     .stSelectbox > div > div,
     .stTextArea > div > div > textarea {
-        background: rgba(255,255,255,0.05) !important;
-        border: 1px solid rgba(165,214,167,0.25) !important;
+        background: var(--input-bg) !important;
+        border: 1px solid var(--card-border) !important;
+        color: var(--text-main) !important;
         border-radius: 10px !important;
-        color: #e8f5e9 !important;
-        font-family: 'DM Sans', sans-serif !important;
-    }
-    .stTextInput > div > div > input:focus,
-    .stTextArea > div > div > textarea:focus {
-        border-color: rgba(165,214,167,0.6) !important;
-        box-shadow: 0 0 0 2px rgba(165,214,167,0.1) !important;
-    }
-
-    /* SLIDERS */
-    .stSlider [data-baseweb="slider"] {
-        padding-top: 8px;
-    }
-    .stSlider [data-baseweb="thumb"] {
-        background: #4caf50 !important;
-        border: 2px solid #a5d6a7 !important;
-    }
-    .stSlider [data-baseweb="track-inner"] {
-        background: linear-gradient(90deg, #2e7d32, #66bb6a) !important;
-    }
-
-    /* UYARI / BİLGİ KUTULARI */
-    .stSuccess > div {
-        background: rgba(46,125,50,0.2) !important;
-        border: 1px solid rgba(102,187,106,0.4) !important;
-        border-radius: 12px !important;
-        color: #a5d6a7 !important;
-        font-family: 'DM Sans', sans-serif !important;
-    }
-    .stError > div {
-        background: rgba(183,28,28,0.2) !important;
-        border: 1px solid rgba(229,115,115,0.4) !important;
-        border-radius: 12px !important;
-        color: #ef9a9a !important;
-    }
-    .stWarning > div {
-        background: rgba(230,162,0,0.12) !important;
-        border: 1px solid rgba(255,202,40,0.3) !important;
-        border-radius: 12px !important;
-        color: #ffe082 !important;
-    }
-    .stInfo > div {
-        background: rgba(1,87,155,0.2) !important;
-        border: 1px solid rgba(79,195,247,0.3) !important;
-        border-radius: 12px !important;
-        color: #81d4fa !important;
-    }
-
-    /* EXPANDER */
-    .streamlit-expanderHeader {
-        background: rgba(255,255,255,0.04) !important;
-        border: 1px solid rgba(165,214,167,0.18) !important;
-        border-radius: 12px !important;
-        color: #a5d6a7 !important;
-        font-family: 'DM Sans', sans-serif !important;
-        font-weight: 500 !important;
-    }
-    .streamlit-expanderContent {
-        border: 1px solid rgba(165,214,167,0.12) !important;
-        border-top: none !important;
-        border-radius: 0 0 12px 12px !important;
-        background: rgba(0,0,0,0.2) !important;
-    }
-
-    /* DATAFRAME */
-    .stDataFrame {
-        border-radius: 12px;
-        overflow: hidden;
-        border: 1px solid rgba(165,214,167,0.15);
-    }
-
-    /* DIVIDER */
-    hr {
-        border: none !important;
-        border-top: 1px solid rgba(165,214,167,0.12) !important;
-        margin: 24px 0 !important;
-    }
-
-    /* UPLOAD */
-    [data-testid="stUploadedFile"] { display: none !important; }
-    .css-1g5m0rc.e1b2p2ww12 { display: none; }
-
-    /* HASTALIK ALARM */
-    .hastalik-alarm {
-        background: linear-gradient(135deg, rgba(183,28,28,0.25), rgba(183,28,28,0.1));
-        padding: 20px 24px;
-        border-radius: 14px;
-        border-left: 4px solid #ef5350;
-        color: #ef9a9a;
-        font-weight: 600;
-        font-family: 'DM Sans', sans-serif;
-        letter-spacing: 0.02em;
-        margin-bottom: 20px;
-        backdrop-filter: blur(8px);
-    }
-
-    /* LOGIN KUTUSU */
-    .login-box {
-        background: linear-gradient(135deg, rgba(46,125,50,0.15), rgba(27,94,32,0.08));
-        padding: 48px 40px;
-        border-radius: 24px;
-        border: 1px solid rgba(165,214,167,0.2);
-        text-align: center;
-        margin-bottom: 32px;
-        backdrop-filter: blur(12px);
-    }
-    .login-box h1 {
-        font-family: 'Playfair Display', serif;
-        font-size: 2.2rem;
-        background: linear-gradient(90deg, #81c784, #c8e6c9);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-        margin-bottom: 12px;
-    }
-    .login-box p {
-        color: #81c784;
-        font-size: 0.95rem;
-        opacity: 0.8;
-    }
-
-    /* GİRİŞ KART KUTULARI */
-    .login-card {
-        background: rgba(255,255,255,0.03);
-        border: 1px solid rgba(165,214,167,0.15);
-        border-radius: 18px;
-        padding: 28px 24px;
-        transition: border-color 0.3s ease;
-    }
-    .login-card:hover {
-        border-color: rgba(165,214,167,0.35);
     }
 
     /* BÖLÜM BAŞLIKLARI */
     .section-label {
         font-family: 'DM Sans', sans-serif;
-        font-size: 0.72rem;
-        font-weight: 600;
+        font-size: 0.75rem;
+        font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.14em;
-        color: #66bb6a;
+        color: var(--primary-color);
         margin-bottom: 12px;
         display: block;
-        opacity: 0.9;
     }
 
-    /* SUBHEADER OVERRIDE */
-    .stApp [data-testid="stMarkdownContainer"] h3 {
-        font-size: 1.05rem;
-        font-weight: 600;
-        color: #a5d6a7;
-        border-bottom: 1px solid rgba(165,214,167,0.12);
-        padding-bottom: 8px;
-        margin-bottom: 16px;
+    /* KART KUTULARI */
+    .login-card {
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 18px;
+        padding: 28px 24px;
+        backdrop-filter: blur(12px);
     }
-
-    /* RADYO BUTONLARI */
-    .stRadio > div {
-        background: rgba(255,255,255,0.03);
-        border-radius: 10px;
-        padding: 8px 12px;
-        border: 1px solid rgba(165,214,167,0.12);
-    }
-    .stRadio label {
-        color: #c8e6c9 !important;
-    }
-
-    /* SELECTBOX */
-    [data-baseweb="select"] {
-        background: rgba(255,255,255,0.05) !important;
-    }
-
-    /* PROGRESS */
-    .stProgress .st-bo {
-        background: linear-gradient(90deg, #2e7d32, #66bb6a) !important;
-    }
-
-    /* GENEL METİN */
-    p, li, label, .stMarkdown {
-        color: #c8e6c9;
-        line-height: 1.65;
-    }
-
-    /* SPINNER */
-    .stSpinner > div {
-        border-top-color: #66bb6a !important;
-    }
-
-    /* CAMERA */
-    .stCameraInput {
-        border-radius: 12px;
-        overflow: hidden;
-        border: 1px solid rgba(165,214,167,0.2);
-    }
-
-    /* SCROLLBAR */
-    ::-webkit-scrollbar { width: 5px; height: 5px; }
-    ::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
-    ::-webkit-scrollbar-thumb { background: rgba(102,187,106,0.4); border-radius: 10px; }
-    ::-webkit-scrollbar-thumb:hover { background: rgba(102,187,106,0.6); }
-
     </style>
     """, unsafe_allow_html=True)
 
@@ -358,7 +164,6 @@ st.markdown("""
 FIREBASE_URL = "https://botanix-iot-default-rtdb.europe-west1.firebasedatabase.app/botanix_sensor.json"
 
 def get_sensor_data_from_firebase():
-    """Buluttaki veritabanından ESP32'nin son ölçümlerini okur."""
     try:
         response = requests.get(FIREBASE_URL)
         if response.status_code == 200:
@@ -370,13 +175,12 @@ def get_sensor_data_from_firebase():
                     "hum": data.get("hava_nemi", 55)
                 }
             else:
-                 st.warning("⚠️ Firebase'de veri bulunamadı. Lütfen ESP32'nin çalıştığından emin olun.")
+                 st.warning("⚠️ Firebase'de veri bulunamadı.")
         else:
              st.error(f"⚠️ Firebase Bağlantı Hatası: {response.status_code}")
     except Exception as e:
         st.error(f"⚠️ Sunucuya erişilemiyor: {e}")
     return None
-
 
 # ==========================================
 # 1. KALICI VERİTABANI YÖNETİMİ (CSV)
@@ -402,11 +206,9 @@ def save_to_database(new_row_df):
 USERS_FILE = "kullanicilar.json"
 
 DEFAULT_USERS = {
-    "TR-1000": {"ad": "Meryem Derin", "bahceler": ["Konya Merkez Lale Serası", "Çumra Domates Tesisleri"]},
-    "TR-1001": {"ad": "Melih Geylani", "bahceler": ["Ereğli Organik Çilek"]},
-    "TR-1002": {"ad": "Juri1", "bahceler": ["Genel Test Serası"]},
-    "TR-1003": {"ad": "Juri2", "bahceler": ["Genel Test Serası"]},
-    "TR-1004": {"ad": "Juri3", "bahceler": ["Genel Test Serası"]}
+    "TR-1000": {"ad": "Meryem Derin", "telefon": "5550000000", "bahceler": ["Konya Merkez Lale Serası", "Çumra Domates Tesisleri"]},
+    "TR-1001": {"ad": "Melih Geylani", "telefon": "5550000001", "bahceler": ["Ereğli Organik Çilek"]},
+    "TR-1002": {"ad": "Juri1", "telefon": "000", "bahceler": ["Genel Test Serası"]}
 }
 
 def load_and_sync_users():
@@ -420,24 +222,13 @@ def load_and_sync_users():
         
     guncellendi_mi = False
     
+    # Sadece varsayılan kullanıcıların eksik bilgilerini tamamlar. 
+    # DİKKAT: Artık organik üye olanları SİLMİYORUZ!
     for user_id, data in DEFAULT_USERS.items():
         if user_id not in kayitli_kullanicilar:
             kayitli_kullanicilar[user_id] = data
             guncellendi_mi = True
-        else:
-            if kayitli_kullanicilar[user_id]["ad"] != data["ad"]:
-                kayitli_kullanicilar[user_id]["ad"] = data["ad"]
-                guncellendi_mi = True
-            for bahce in data["bahceler"]:
-                if bahce not in kayitli_kullanicilar[user_id]["bahceler"]:
-                    kayitli_kullanicilar[user_id]["bahceler"].append(bahce)
-                    guncellendi_mi = True
-                    
-    silinecek_idler = [uid for uid in kayitli_kullanicilar if uid not in DEFAULT_USERS]
-    for uid in silinecek_idler:
-        del kayitli_kullanicilar[uid]
-        guncellendi_mi = True
-
+            
     if guncellendi_mi:
         with open(USERS_FILE, "w", encoding="utf-8") as f:
             json.dump(kayitli_kullanicilar, f, ensure_ascii=False, indent=4)
@@ -473,9 +264,9 @@ if "sensor_data" not in st.session_state:
 # ==========================================
 if not st.session_state.logged_in:
     st.markdown("""
-    <div class="login-box">
-        <h1>🌿 Botanix</h1>
-        <p>Otonom Tarım Yönetim Platformu — Giriş yapın veya misafir olarak devam edin.</p>
+    <div style="text-align:center; padding: 20px; margin-bottom: 20px;">
+        <h1 style="font-size: 3rem;">🌿 Botanix</h1>
+        <p style="font-size: 1.1rem; opacity: 0.8;">Otonom Tarım Yönetim Platformu</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -501,7 +292,7 @@ if not st.session_state.logged_in:
     with col2:
         st.markdown('<div class="login-card">', unsafe_allow_html=True)
         st.markdown('<span class="section-label">🔍 Misafir / Ziyaretçi Girişi</span>', unsafe_allow_html=True)
-        st.markdown('<p style="font-size:0.85rem; color:#81c784; opacity:0.75; margin-bottom:16px;">QR kod ile bağlanan ziyaretçiler ve jüri üyeleri bu seçeneği kullanabilir.</p>', unsafe_allow_html=True)
+        st.markdown('<p style="font-size:0.85rem; opacity:0.75; margin-bottom:16px;">Jüri üyeleri ve test amaçlı ziyaretler için.</p>', unsafe_allow_html=True)
         if st.button("→ Misafir Olarak Devam Et", use_container_width=True):
             st.session_state.logged_in = True
             st.session_state.is_guest = True
@@ -512,6 +303,36 @@ if not st.session_state.logged_in:
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
+    # --- YENİ EKLENEN KAYIT ALANI ---
+    st.markdown("<br>", unsafe_allow_html=True)
+    with st.expander("📝 Sistemi Kullanmaya Başlayın: Yeni Çiftçi Kaydı Oluştur", expanded=False):
+        st.markdown('<span class="section-label">Ücretsiz Ön Kayıt</span>', unsafe_allow_html=True)
+        
+        yeni_ad = st.text_input("Ad - Soyad", placeholder="Örn: Meryem Derin")
+        yeni_tel = st.text_input("Telefon Numarası", placeholder="Örn: 0555 123 4567")
+        yeni_bahce = st.text_input("İlk Saha/Sera Adı", placeholder="Örn: Konya Merkez Lale Serası")
+        
+        if st.button("Sisteme Kayıt Ol", use_container_width=True):
+            if yeni_ad and yeni_tel and yeni_bahce:
+                # Rastgele, benzersiz bir ID oluştur (TR-XXXX formatında)
+                while True:
+                    yeni_id = f"TR-{random.randint(2000, 9999)}"
+                    if yeni_id not in GUNCEL_KULLANICILAR:
+                        break
+                
+                # Kullanıcıyı sözlüğe ekle ve JSON dosyasına kaydet
+                GUNCEL_KULLANICILAR[yeni_id] = {
+                    "ad": yeni_ad, 
+                    "telefon": yeni_tel, 
+                    "bahceler": [yeni_bahce]
+                }
+                save_users(GUNCEL_KULLANICILAR)
+                
+                st.success(f"🎉 Kayıt Başarılı! Sisteme Giriş ID'niz: **{yeni_id}**")
+                st.info("Lütfen bu ID'yi not alın. Yukarıdaki 'Kayıtlı Çiftçi Girişi' panelinden giriş yapabilirsiniz.")
+            else:
+                st.warning("Lütfen tüm alanları eksiksiz doldurunuz.")
+
 # ==========================================
 # EKRAN 2: ANA UYGULAMA (GİRİŞ YAPILDIYSA)
 # ==========================================
@@ -519,14 +340,14 @@ else:
     with st.sidebar:
         # Profil
         st.markdown(f"""
-        <div style="background:rgba(46,125,50,0.15);border:1px solid rgba(165,214,167,0.2);
-                    border-radius:14px;padding:16px;margin-bottom:16px;">
+        <div style="background:var(--card-bg); border:1px solid var(--card-border);
+                    border-radius:14px; padding:16px; margin-bottom:16px;">
             <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.12em;
-                        color:#66bb6a;font-weight:600;margin-bottom:6px;">Aktif Oturum</div>
-            <div style="font-size:1.05rem;font-weight:600;color:#c8e6c9;margin-bottom:2px;">
+                        color:var(--primary-color);font-weight:700;margin-bottom:6px;">Aktif Oturum</div>
+            <div style="font-size:1.05rem;font-weight:600;margin-bottom:2px;">
                 {st.session_state.user_name}
             </div>
-            <div style="font-size:0.78rem;color:#81c784;opacity:0.7;">{st.session_state.user_id}</div>
+            <div style="font-size:0.78rem;opacity:0.7;">{st.session_state.user_id}</div>
         </div>
         """, unsafe_allow_html=True)
         
@@ -576,7 +397,7 @@ else:
     st.markdown(f"""
     <div style="margin-bottom:8px;">
         <h1 style="margin-bottom:4px;">🌿 Botanix</h1>
-        <div style="font-size:0.85rem;color:#81c784;opacity:0.75;letter-spacing:0.04em;">
+        <div style="font-size:0.85rem;opacity:0.75;letter-spacing:0.04em;">
             Otonom Tarım Yönetim Platformu &nbsp;·&nbsp; {st.session_state.aktif_bahce}
         </div>
     </div>
@@ -723,7 +544,7 @@ else:
                 (guncel_veritabani["Bahçe/Sera"] == st.session_state.aktif_bahce)
             ]
             
-            st.markdown(f'<p style="font-size:0.88rem;color:#81c784;opacity:0.8;">**{st.session_state.aktif_bahce}** bölgesi için kaydedilen sensör okumalarının zaman serisi.</p>', unsafe_allow_html=True)
+            st.markdown(f'<p style="font-size:0.88rem;opacity:0.8;">**{st.session_state.aktif_bahce}** bölgesi için kaydedilen sensör okumalarının zaman serisi.</p>', unsafe_allow_html=True)
             
             if not kullanici_guncel_veri.empty:
                 st.dataframe(kullanici_guncel_veri, use_container_width=True)
