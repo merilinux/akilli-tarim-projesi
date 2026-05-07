@@ -532,161 +532,176 @@ else:
 
    
     # ------------------------------------------
-    # SEKME 4: DRONE UÇUŞ PLANLAYICI (FAZ-2) - GERÇEKÇİ SİMÜLASYON
-    # ------------------------------------------
-    # ------------------------------------------
-    # SEKME 4: DRONE UÇUŞ PLANLAYICI (FAZ-2) - GERÇEKÇİ SİMÜLASYON
+    # SEKME 4: DRONE UÇUŞ PLANLAYICI (FAZ-2) - GERÇEKÇİ SİMÜLASYON VE POLİGON
     # ------------------------------------------
     with tab4:
         st.markdown('<span class="section-label">🚁 Otonom Drone Uçuş Planlayıcı (Uydu Haritası)</span>', unsafe_allow_html=True)
         st.markdown("""
         <p style='font-size:0.9rem; opacity:0.8;'>
-        Büyük ölçekli ticari tarlalarda sensör maliyetini ortadan kaldırmak için planlanan <b>Faz-2 Su Stresi Haritalama</b> modülüdür. 
-        Aşağıdaki 'Play' butonuna basarak drone'un senin GitHub'ına yüklediğin gerçek arazi görüntüsü üzerindeki otonom tarama uçuşunu izleyebilirsin.
+        Ticari tarlalarda sadece çiftçinin belirlediği sınırların (poligon) içini taramak için geliştirilmiş <b>Otonom Alan Tarama</b> algoritmasıdır.
         </p>
         """, unsafe_allow_html=True)
 
-        # Doğrudan senin linkini tanımlıyoruz, uyarı mekanizmasını sildik!
         SENIN_GITHUB_RESIM_LINKIN = "https://raw.githubusercontent.com/merilinux/akilli-tarim-projesi/main/Gemini_Generated_Image_uvl9gtuvl9gtuvl9.png"
-        GITHUB_GELIŞTIRME_MODE = True
+        GITHUB_GELISTIRME_MODE = True
+
+        # Tarla Sınırlarını Belirleme Paneli (Poligon)
+        with st.expander("📍 Tarla Sınırlarını Belirle (Poligon Koordinatları)", expanded=False):
+            st.markdown("<p style='font-size:0.8rem; color:#81c784;'>Tablet uygulamasında çiftçinin ekrana dokunarak seçeceği 4 köşeyi buradan simüle edebilirsiniz.</p>", unsafe_allow_html=True)
+            c1, c2, c3, c4 = st.columns(4)
+            with c1:
+                x1 = st.number_input("Sol Alt X", value=20)
+                y1 = st.number_input("Sol Alt Y", value=20)
+            with c2:
+                x2 = st.number_input("Sağ Alt X", value=190)
+                y2 = st.number_input("Sağ Alt Y", value=40)
+            with c3:
+                x3 = st.number_input("Sağ Üst X", value=170)
+                y3 = st.number_input("Sağ Üst Y", value=180)
+            with c4:
+                x4 = st.number_input("Sol Üst X", value=50)
+                y4 = st.number_input("Sol Üst Y", value=190)
+
+        # Poligon Noktaları Dizisi
+        poligon = [(x1, y1), (x2, y2), (x3, y3), (x4, y4)]
 
         # Parametre Ayarları
         col_slider1, col_slider2 = st.columns(2)
         with col_slider1:
-            irtifa = st.slider("Uçuş İrtifası (m)", min_value=30, max_value=120, value=50, step=5, 
-                               help="Drone yükseldikçe kameranın yeri görme açısı genişler, daha az noktada uçuş biter ancak çözünürlük düşer.")
+            irtifa = st.slider("Uçuş İrtifası (m)", min_value=30, max_value=120, value=50, step=5)
         with col_slider2:
-            binisme = st.slider("Binişme Oranı (%)", min_value=50, max_value=90, value=70, step=5,
-                                help="Fotoğrafların birbiri üzerine binme oranıdır. Oran arttıkça drone daha sık fotoğraf çeker (noktalar sıklaşır).")
+            binisme = st.slider("Binişme Oranı (%)", min_value=50, max_value=90, value=70, step=5)
 
-        # Matematiksel Hesaplamalar
-        tarla_boyutu = 200 # 200x200 metre kare bir tarla
+        # Matematiksel Hesaplamalar ve Otonom Rota Algoritması
         kamera_gorus_acisi = 1.5 
-        
         kapsama_genisligi = irtifa * kamera_gorus_acisi
         adim_mesafesi = kapsama_genisligi * (1 - (binisme / 100.0))
         if adim_mesafesi < 5: adim_mesafesi = 5 
 
+        # Poligonun en alt ve en üst sınırlarını bul
+        min_y = min(p[1] for p in poligon)
+        max_y = max(p[1] for p in poligon)
+
         wp_x, wp_y = [], []
-        mevcut_y = kapsama_genisligi / 2
+        mevcut_y = min_y + (kapsama_genisligi / 2)
         yon = 1 
 
-        while mevcut_y <= tarla_boyutu - (kapsama_genisligi / 2):
-            mevcut_x = kapsama_genisligi / 2 if yon == 1 else tarla_boyutu - (kapsama_genisligi / 2)
-            hedef_x = tarla_boyutu - (kapsama_genisligi / 2) if yon == 1 else kapsama_genisligi / 2
+        # Işın İzleme (Ray Casting) Tabanlı Poligon İçi Rota Hesaplama
+        while mevcut_y <= max_y - (kapsama_genisligi / 2):
+            kesisimler = []
+            # Poligonun 4 kenarı ile yatay tarama çizgisinin kesişim noktalarını bul
+            for i in range(4):
+                pA = poligon[i]
+                pB = poligon[(i+1) % 4]
+                # Eğer yatay çizgi bu kenarı kesiyorsa
+                if (pA[1] <= mevcut_y < pB[1]) or (pB[1] <= mevcut_y < pA[1]):
+                    if pB[1] != pA[1]: # Sıfıra bölünme hatasını önle
+                        ix = pA[0] + (mevcut_y - pA[1]) * (pB[0] - pA[0]) / (pB[1] - pA[1])
+                        kesisimler.append(ix)
+            
+            # Eğer çizgi poligonun içinden geçiyorsa (2 kesisim noktası vardır)
+            if len(kesisimler) >= 2:
+                kesisimler.sort()
+                # Drone kamerasının dışarı taşmaması için güvenli başlangıç ve bitiş
+                baslangic_x = kesisimler[0] + (kapsama_genisligi / 2)
+                bitis_x = kesisimler[1] - (kapsama_genisligi / 2)
 
-            while (yon == 1 and mevcut_x <= hedef_x) or (yon == -1 and mevcut_x >= hedef_x):
-                wp_x.append(mevcut_x)
-                wp_y.append(mevcut_y)
-                mevcut_x += adim_mesafesi * yon
-                
+                if baslangic_x <= bitis_x:
+                    mx = baslangic_x if yon == 1 else bitis_x
+                    hx = bitis_x if yon == 1 else baslangic_x
+
+                    # O satırdaki noktaları ekle
+                    while (yon == 1 and mx <= hx) or (yon == -1 and mx >= hx):
+                        wp_x.append(mx)
+                        wp_y.append(mevcut_y)
+                        mx += adim_mesafesi * yon
+
             mevcut_y += adim_mesafesi
             yon *= -1 
 
+        # Uçuş Metrikleri
         toplam_waypoint = len(wp_x)
         toplam_mesafe = 0
         for i in range(1, len(wp_x)):
             toplam_mesafe += ((wp_x[i] - wp_x[i-1])**2 + (wp_y[i] - wp_y[i-1])**2)**0.5
         
-        drone_hizi = 5 # m/s varsayılan
-        tahmini_sure = (toplam_mesafe / drone_hizi) / 60 
+        tahmini_sure = (toplam_mesafe / 5) / 60 if toplam_waypoint > 0 else 0
 
         # Plotly Animasyon Çizimi
         fig = go.Figure()
 
-        # 1. Senin GitHub'daki Gerçekçi Arazi Görüntüsü (Arka Plan)
-        if GITHUB_GELIŞTIRME_MODE:
+        # 1. Arka Plan Resmi
+        if GITHUB_GELISTIRME_MODE:
             fig.add_layout_image(
                 dict(
                     source=SENIN_GITHUB_RESIM_LINKIN, 
                     xref="x", yref="y",
-                    x=0, y=tarla_boyutu,
-                    sizex=tarla_boyutu, sizey=tarla_boyutu,
-                    sizing="stretch",
-                    opacity=0.8,
-                    layer="below"
+                    x=0, y=220, sizex=220, sizey=220,
+                    sizing="stretch", opacity=0.8, layer="below"
                 )
             )
 
-        # Harita Sınır Çizgisi (Kesik Beyaz Çizgi)
-        fig.add_shape(type="rect",
-            x0=0, y0=0, x1=tarla_boyutu, y1=tarla_boyutu,
-            line=dict(color="rgba(255, 255, 255, 0.6)", width=3, dash="dash"),
-            fillcolor="rgba(0,0,0,0)"
-        )
-
-        # 2. Uçuş Rotası Çizgisi (Trace 0 - Neon Sarı)
+        # 2. Çiftçinin Seçtiği Poligon Sınırı (Kırmızı Kesik Çizgi ve Hafif Kırmızı Dolgu)
+        poligon_x = [x1, x2, x3, x4, x1]
+        poligon_y = [y1, y2, y3, y4, y1]
         fig.add_trace(go.Scatter(
-            x=wp_x, y=wp_y, mode='lines',
-            line=dict(color='rgba(255, 235, 59, 0.8)', width=2),
-            hoverinfo='skip'
+            x=poligon_x, y=poligon_y, mode='lines',
+            fill='toself', fillcolor='rgba(244, 67, 54, 0.1)',
+            line=dict(color='rgba(244, 67, 54, 0.8)', width=3, dash="dash"),
+            name="Seçilen Tarla Alanı", hoverinfo='skip'
         ))
 
-        # 3. Waypoint Noktaları (Trace 1 - Beyaz/Mavi)
-        fig.add_trace(go.Scatter(
-            x=wp_x, y=wp_y, mode='markers',
-            marker=dict(color='#ffffff', size=5, line=dict(color='#00e5ff', width=2)),
-            hoverinfo='skip'
-        ))
-
+        # 3. Uçuş Rotası ve Noktaları
         if wp_x and wp_y:
-            # Görüntü Alanı Kutusu Çizme Yardımcısı
+            fig.add_trace(go.Scatter(
+                x=wp_x, y=wp_y, mode='lines',
+                line=dict(color='rgba(255, 235, 59, 0.8)', width=2), hoverinfo='skip'
+            ))
+            fig.add_trace(go.Scatter(
+                x=wp_x, y=wp_y, mode='markers',
+                marker=dict(color='#ffffff', size=5, line=dict(color='#00e5ff', width=2)), hoverinfo='skip'
+            ))
+
             def get_box_x(cx, w): return [cx-w/2, cx+w/2, cx+w/2, cx-w/2, cx-w/2]
             def get_box_y(cy, w): return [cy-w/2, cy-w/2, cy+w/2, cy+w/2, cy-w/2]
 
-            # 4. Kamera Görüntü Alanı Kutusu - Başlangıç (Trace 2 - Radar Mavisi)
             fig.add_trace(go.Scatter(
-                x=get_box_x(wp_x[0], kapsama_genisligi), 
-                y=get_box_y(wp_y[0], kapsama_genisligi),
-                fill='toself', fillcolor='rgba(0, 229, 255, 0.25)',
-                line=dict(color='#00e5ff', width=2, dash='dot'),
-                hoverinfo='skip'
+                x=get_box_x(wp_x[0], kapsama_genisligi), y=get_box_y(wp_y[0], kapsama_genisligi),
+                fill='toself', fillcolor='rgba(0, 229, 255, 0.25)', line=dict(color='#00e5ff', width=2, dash='dot'), hoverinfo='skip'
             ))
 
-            # 5. Drone Simgesi - Başlangıç (Trace 3)
             fig.add_trace(go.Scatter(
-                x=[wp_x[0]], y=[wp_y[0]], mode='text',
-                text=['🚁'], textfont=dict(size=38),
-                hoverinfo='skip'
+                x=[wp_x[0]], y=[wp_y[0]], mode='text', text=['🚁'], textfont=dict(size=38), hoverinfo='skip'
             ))
 
-            # Animasyon Kareleri (Frames) Oluşturulması
             frames = []
             for i in range(len(wp_x)):
                 frames.append(go.Frame(
                     data=[
                         go.Scatter(x=get_box_x(wp_x[i], kapsama_genisligi), y=get_box_y(wp_y[i], kapsama_genisligi)),
                         go.Scatter(x=[wp_x[i]], y=[wp_y[i]])
-                    ],
-                    traces=[2, 3]
+                    ], traces=[3, 4] # İndeksler poligon çizgisinden dolayı kaydı
                 ))
             fig.frames = frames
 
-            # Animasyon Butonları (Play / Pause)
             fig.update_layout(
                 updatemenus=[dict(
-                    type="buttons",
-                    showactive=False,
-                    x=0.5, y=1.15, xanchor="center", yanchor="bottom",
-                    direction="left",
+                    type="buttons", showactive=False,
+                    x=0.5, y=1.15, xanchor="center", yanchor="bottom", direction="left",
                     buttons=[
-                        dict(label="▶️ Otonom Uçuşu Başlat", method="animate", 
-                             args=[None, dict(frame=dict(duration=400, redraw=False), 
-                                              transition=dict(duration=400, easing="linear"), 
-                                              fromcurrent=True, mode="immediate")]),
-                        dict(label="⏸️ Durdur", method="animate", 
-                             args=[[None], dict(frame=dict(duration=0, redraw=False), 
-                                                mode="immediate", transition=dict(duration=0))])
+                        dict(label="▶️ Otonom Uçuşu Başlat", method="animate", args=[None, dict(frame=dict(duration=400, redraw=False), transition=dict(duration=400, easing="linear"), fromcurrent=True, mode="immediate")]),
+                        dict(label="⏸️ Durdur", method="animate", args=[[None], dict(frame=dict(duration=0, redraw=False), mode="immediate", transition=dict(duration=0))])
                     ]
                 )]
             )
 
+        # Zoom Mekanizması
+        zoom_payi = (irtifa - 30) * 1.0 
         fig.update_layout(
-            xaxis=dict(range=[-20, tarla_boyutu+20], showgrid=False, zeroline=False, visible=False),
-            yaxis=dict(range=[-20, tarla_boyutu+20], showgrid=False, zeroline=False, visible=False),
+            xaxis=dict(range=[-zoom_payi, 220 + zoom_payi], showgrid=False, zeroline=False, visible=False),
+            yaxis=dict(range=[-zoom_payi, 220 + zoom_payi], showgrid=False, zeroline=False, visible=False),
             plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-            margin=dict(l=0, r=0, t=60, b=0),
-            height=500, showlegend=False
+            margin=dict(l=0, r=0, t=60, b=0), height=500, showlegend=False
         )
 
         st.plotly_chart(fig, use_container_width=True)
