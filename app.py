@@ -7,6 +7,7 @@ import os
 import json
 import requests
 from datetime import datetime
+import plotly.graph_objects as go  # YENİ: Drone rotası çizimi için eklendi
 
 # ==========================================
 # SAYFA AYARLARI VE ŞEFFAF/ESNEK TASARIM (CSS)
@@ -336,7 +337,8 @@ else:
             (genel_veritabani["Bahçe/Sera"] == st.session_state.aktif_bahce)
         ]
 
-    tab1, tab2, tab3 = st.tabs(["📸  Anlık Analiz", "📅  Gelişim Ajandası", "🔮  Proaktif Risk Tahmini"])
+    # --- SEKME SAYISINI 4'E ÇIKARDIK ---
+    tab1, tab2, tab3, tab4 = st.tabs(["📸  Anlık Analiz", "📅  Gelişim Ajandası", "🔮  Proaktif Risk Tahmini", "🚁  Otonom Uçuş (Faz-2)"])
 
     with tab1:
         st.markdown(f'<span class="section-label">📡 IoT Sensör Ağı — {st.session_state.aktif_bahce}</span>', unsafe_allow_html=True)
@@ -527,3 +529,109 @@ else:
                             st.markdown(sim_text)
                     except Exception as e:
                         st.error(f"Hata: {e}")
+
+    # ------------------------------------------
+    # SEKME 4: DRONE UÇUŞ PLANLAYICI (FAZ-2)
+    # ------------------------------------------
+    with tab4:
+        st.markdown('<span class="section-label">🚁 Otonom Drone Uçuş Planlayıcı (Grid Simülasyonu)</span>', unsafe_allow_html=True)
+        st.markdown("""
+        <p style='font-size:0.9rem; opacity:0.8;'>
+        Büyük ölçekli ticari tarlalarda fiziksel sensör maliyetini ortadan kaldırmak için planlanan <b>Faz-2 Su Stresi Haritalama</b> modülüdür. 
+        Drone'un multispektral kamerayla tarlayı taraması için otonom waypoint'ler hesaplanır.
+        </p>
+        """, unsafe_allow_html=True)
+
+        # Parametre Ayarları
+        col_slider1, col_slider2 = st.columns(2)
+        with col_slider1:
+            irtifa = st.slider("Uçuş İrtifası (m)", min_value=30, max_value=120, value=50, step=5, 
+                               help="Drone yükseldikçe kameranın yeri görme açısı genişler, daha az noktada uçuş biter ancak çözünürlük düşer.")
+        with col_slider2:
+            binisme = st.slider("Binişme Oranı (%)", min_value=50, max_value=90, value=70, step=5,
+                                help="Fotoğrafların birbiri üzerine binme oranıdır. Oran arttıkça drone daha sık fotoğraf çeker (noktalar sıklaşır).")
+
+        # Matematiksel Hesaplamalar
+        tarla_boyutu = 200 # 200x200 metre kare bir tarla
+        kamera_gorus_acisi = 1.5 
+        
+        kapsama_genisligi = irtifa * kamera_gorus_acisi
+        adim_mesafesi = kapsama_genisligi * (1 - (binisme / 100.0))
+        if adim_mesafesi < 5: adim_mesafesi = 5 
+
+        wp_x, wp_y = [], []
+        mevcut_y = kapsama_genisligi / 2
+        yon = 1 
+
+        while mevcut_y <= tarla_boyutu - (kapsama_genisligi / 2):
+            mevcut_x = kapsama_genisligi / 2 if yon == 1 else tarla_boyutu - (kapsama_genisligi / 2)
+            hedef_x = tarla_boyutu - (kapsama_genisligi / 2) if yon == 1 else kapsama_genisligi / 2
+
+            while (yon == 1 and mevcut_x <= hedef_x) or (yon == -1 and mevcut_x >= hedef_x):
+                wp_x.append(mevcut_x)
+                wp_y.append(mevcut_y)
+                mevcut_x += adim_mesafesi * yon
+                
+            mevcut_y += adim_mesafesi
+            yon *= -1 
+
+        toplam_waypoint = len(wp_x)
+        toplam_mesafe = 0
+        for i in range(1, len(wp_x)):
+            toplam_mesafe += ((wp_x[i] - wp_x[i-1])**2 + (wp_y[i] - wp_y[i-1])**2)**0.5
+        
+        drone_hizi = 5 # m/s varsayılan
+        tahmini_sure = (toplam_mesafe / drone_hizi) / 60 
+
+        # Plotly Çizimi
+        fig = go.Figure()
+
+        # Tarlanın Sınırları
+        fig.add_shape(type="rect",
+            x0=0, y0=0, x1=tarla_boyutu, y1=tarla_boyutu,
+            line=dict(color="rgba(129, 199, 132, 0.5)", width=2, dash="dash"),
+            fillcolor="rgba(46, 125, 50, 0.1)"
+        )
+
+        # Uçuş Rotası
+        fig.add_trace(go.Scatter(
+            x=wp_x, y=wp_y, mode='lines',
+            line=dict(color='#81c784', width=2),
+            name='Uçuş Rotası'
+        ))
+
+        # Waypoint Noktaları
+        fig.add_trace(go.Scatter(
+            x=wp_x, y=wp_y, mode='markers',
+            marker=dict(color='#ffffff', size=6, line=dict(color='#2e7d32', width=2)),
+            name='Waypoint'
+        ))
+
+        # Kamera Kapsama Alanı Görüntüsü (İlk Nokta İçin)
+        if wp_x and wp_y:
+            ornek_x, ornek_y = wp_x[0], wp_y[0]
+            fig.add_shape(type="rect",
+                x0=ornek_x - kapsama_genisligi/2, y0=ornek_y - kapsama_genisligi/2,
+                x1=ornek_x + kapsama_genisligi/2, y1=ornek_y + kapsama_genisligi/2,
+                line=dict(color="#4fc3f7", width=2),
+                fillcolor="rgba(79, 195, 247, 0.2)"
+            )
+            fig.add_trace(go.Scatter(x=[ornek_x], y=[ornek_y], mode='text', text=['📷 Görüntü Alanı'], textposition="top right", showlegend=False))
+
+        fig.update_layout(
+            xaxis=dict(range=[-10, tarla_boyutu+10], showgrid=False, zeroline=False, visible=False),
+            yaxis=dict(range=[-10, tarla_boyutu+10], showgrid=False, zeroline=False, visible=False),
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)",
+            margin=dict(l=0, r=0, t=30, b=0),
+            height=450,
+            showlegend=False
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+
+        # Metrikler
+        met1, met2, met3 = st.columns(3)
+        met1.metric("📌 Toplam Waypoint", f"{toplam_waypoint} Adet")
+        met2.metric("📏 Toplam Rota", f"{int(toplam_mesafe)} Metre")
+        met3.metric("⏱️ Tahmini Uçuş", f"{tahmini_sure:.1f} Dk")
