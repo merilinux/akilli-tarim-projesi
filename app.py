@@ -534,6 +534,9 @@ else:
     # ------------------------------------------
     # SEKME 4: DRONE UÇUŞ PLANLAYICI (FAZ-2) - GERÇEKÇİ SİMÜLASYON
     # ------------------------------------------
+    # ------------------------------------------
+    # SEKME 4: DRONE UÇUŞ PLANLAYICI (FAZ-2) - GERÇEKÇİ SİMÜLASYON
+    # ------------------------------------------
     with tab4:
         st.markdown('<span class="section-label">🚁 Otonom Drone Uçuş Planlayıcı (Uydu Haritası)</span>', unsafe_allow_html=True)
         st.markdown("""
@@ -543,19 +546,9 @@ else:
         </p>
         """, unsafe_allow_html=True)
 
-        # ------------------------------------------------------------------
-        # 🔥 [ADIM 3: KRİTİK DEĞİŞİKLİK] 🔥
-        # GitHub'dan aldığın o RAW linkini aşağıdaki tırnak işaretlerinin ("") içine yapıştır!
-        # Link 'https://raw.githubusercontent.com/...' ile başlamalıdır.
-        # ------------------------------------------------------------------
+        # Doğrudan senin linkini tanımlıyoruz, uyarı mekanizmasını sildik!
         SENIN_GITHUB_RESIM_LINKIN = "https://raw.githubusercontent.com/merilinux/akilli-tarim-projesi/main/Gemini_Generated_Image_uvl9gtuvl9gtuvl9.png"
-        # ------------------------------------------------------------------
-
-        if SENIN_GITHUB_RESIM_LINKIN == "https://raw.githubusercontent.com/merilinux/akilli-tarim-projesi/main/Gemini_Generated_Image_uvl9gtuvl9gtuvl9.png":
-             st.warning("⚠️ Lütfen koddaki 'SENIN_GITHUB_RESIM_LINKIN' değişkenine GitHub'dan aldığın RAW resim linkini yapıştır!")
-             GITHUB_GELIŞTIRME_MODE = False
-        else:
-             GITHUB_GELIŞTIRME_MODE = True
+        GITHUB_GELIŞTIRME_MODE = True
 
         # Parametre Ayarları
         col_slider1, col_slider2 = st.columns(2)
@@ -605,7 +598,7 @@ else:
         if GITHUB_GELIŞTIRME_MODE:
             fig.add_layout_image(
                 dict(
-                    source=SENIN_GITHUB_RESIM_LINKIN, # Değişkenden okuyoruz
+                    source=SENIN_GITHUB_RESIM_LINKIN, 
                     xref="x", yref="y",
                     x=0, y=tarla_boyutu,
                     sizex=tarla_boyutu, sizey=tarla_boyutu,
