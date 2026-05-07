@@ -534,12 +534,15 @@ else:
     # ------------------------------------------
     # SEKME 4: DRONE UÇUŞ PLANLAYICI (FAZ-2) - GERÇEKÇİ SİMÜLASYON
     # ------------------------------------------
+    # ------------------------------------------
+    # SEKME 4: DRONE UÇUŞ PLANLAYICI (FAZ-2) - GERÇEKÇİ SİMÜLASYON
+    # ------------------------------------------
     with tab4:
         st.markdown('<span class="section-label">🚁 Otonom Drone Uçuş Planlayıcı (Uydu Haritası)</span>', unsafe_allow_html=True)
         st.markdown("""
         <p style='font-size:0.9rem; opacity:0.8;'>
         Büyük ölçekli ticari tarlalarda sensör maliyetini ortadan kaldırmak için planlanan <b>Faz-2 Su Stresi Haritalama</b> modülüdür. 
-        Aşağıdaki 'Play' butonuna basarak drone'un gerçek arazi üzerindeki otonom tarama uçuşunu izleyebilirsiniz.
+        Aşağıdaki 'Play' butonuna basarak drone'un senin sağladığın gerçek arazi görüntüsü üzerindeki otonom tarama uçuşunu izleyebilirsin.
         </p>
         """, unsafe_allow_html=True)
 
@@ -587,10 +590,10 @@ else:
         # Plotly Animasyon Çizimi
         fig = go.Figure()
 
-        # 1. Tarlanın Gerçekçi Uydu Görüntüsü (Arka Plan)
+        # 1. Senin Sağladığın Gerçekçi Arazi Görüntüsü (Arka Plan)
         fig.add_layout_image(
             dict(
-                source="https://images.unsplash.com/photo-1625246333195-78d9c38ad449?q=80&w=1000&auto=format&fit=crop", # Üstten çekilmiş tarla fotoğrafı
+                source="https://raw.githubusercontent.com/meriderin/botanix-assets/main/image_5.png", # Senin görselin URL'si
                 xref="x", yref="y",
                 x=0, y=tarla_boyutu,
                 sizex=tarla_boyutu, sizey=tarla_boyutu,
