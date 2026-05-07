@@ -548,10 +548,10 @@ else:
         # GitHub'dan aldığın o RAW linkini aşağıdaki tırnak işaretlerinin ("") içine yapıştır!
         # Link 'https://raw.githubusercontent.com/...' ile başlamalıdır.
         # ------------------------------------------------------------------
-        SENIN_GITHUB_RESIM_LINKIN = "BURAYA_KOPYALADIGIN_RAW_LINKI_YAPISTIR" 
+        SENIN_GITHUB_RESIM_LINKIN = "https://raw.githubusercontent.com/merilinux/akilli-tarim-projesi/main/Gemini_Generated_Image_uvl9gtuvl9gtuvl9.png"
         # ------------------------------------------------------------------
 
-        if SENIN_GITHUB_RESIM_LINKIN == "BURAYA_KOPYALADIGIN_RAW_LINKI_YAPISTIR":
+        if SENIN_GITHUB_RESIM_LINKIN == "https://raw.githubusercontent.com/merilinux/akilli-tarim-projesi/main/Gemini_Generated_Image_uvl9gtuvl9gtuvl9.png":
              st.warning("⚠️ Lütfen koddaki 'SENIN_GITHUB_RESIM_LINKIN' değişkenine GitHub'dan aldığın RAW resim linkini yapıştır!")
              GITHUB_GELIŞTIRME_MODE = False
         else:
