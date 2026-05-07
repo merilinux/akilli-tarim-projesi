@@ -530,18 +530,16 @@ else:
                     except Exception as e:
                         st.error(f"Hata: {e}")
 
+   
     # ------------------------------------------
-    # SEKME 4: DRONE UÇUŞ PLANLAYICI (FAZ-2)
-    # ------------------------------------------
-    # ------------------------------------------
-    # SEKME 4: DRONE UÇUŞ PLANLAYICI (FAZ-2) - ANİMASYONLU
+    # SEKME 4: DRONE UÇUŞ PLANLAYICI (FAZ-2) - GERÇEKÇİ SİMÜLASYON
     # ------------------------------------------
     with tab4:
-        st.markdown('<span class="section-label">🚁 Otonom Drone Uçuş Planlayıcı (Grid Simülasyonu)</span>', unsafe_allow_html=True)
+        st.markdown('<span class="section-label">🚁 Otonom Drone Uçuş Planlayıcı (Uydu Haritası)</span>', unsafe_allow_html=True)
         st.markdown("""
         <p style='font-size:0.9rem; opacity:0.8;'>
         Büyük ölçekli ticari tarlalarda sensör maliyetini ortadan kaldırmak için planlanan <b>Faz-2 Su Stresi Haritalama</b> modülüdür. 
-        Drone'un multispektral kamerayla tarlayı taraması için otonom uçuş animasyonunu aşağıdaki 'Play' butonundan başlatabilirsiniz.
+        Aşağıdaki 'Play' butonuna basarak drone'un gerçek arazi üzerindeki otonom tarama uçuşunu izleyebilirsiniz.
         </p>
         """, unsafe_allow_html=True)
 
@@ -589,24 +587,37 @@ else:
         # Plotly Animasyon Çizimi
         fig = go.Figure()
 
-        # 1. Tarlanın Sınırları (Statik)
-        fig.add_shape(type="rect",
-            x0=0, y0=0, x1=tarla_boyutu, y1=tarla_boyutu,
-            line=dict(color="rgba(129, 199, 132, 0.5)", width=2, dash="dash"),
-            fillcolor="rgba(46, 125, 50, 0.1)"
+        # 1. Tarlanın Gerçekçi Uydu Görüntüsü (Arka Plan)
+        fig.add_layout_image(
+            dict(
+                source="https://images.unsplash.com/photo-1625246333195-78d9c38ad449?q=80&w=1000&auto=format&fit=crop", # Üstten çekilmiş tarla fotoğrafı
+                xref="x", yref="y",
+                x=0, y=tarla_boyutu,
+                sizex=tarla_boyutu, sizey=tarla_boyutu,
+                sizing="stretch",
+                opacity=0.8,
+                layer="below"
+            )
         )
 
-        # 2. Uçuş Rotası Çizgisi (Trace 0)
+        # Harita Sınır Çizgisi (Kesik Beyaz Çizgi)
+        fig.add_shape(type="rect",
+            x0=0, y0=0, x1=tarla_boyutu, y1=tarla_boyutu,
+            line=dict(color="rgba(255, 255, 255, 0.6)", width=3, dash="dash"),
+            fillcolor="rgba(0,0,0,0)"
+        )
+
+        # 2. Uçuş Rotası Çizgisi (Trace 0 - Neon Sarı)
         fig.add_trace(go.Scatter(
             x=wp_x, y=wp_y, mode='lines',
-            line=dict(color='rgba(129, 199, 132, 0.6)', width=2),
+            line=dict(color='rgba(255, 235, 59, 0.8)', width=2),
             hoverinfo='skip'
         ))
 
-        # 3. Waypoint Noktaları (Trace 1)
+        # 3. Waypoint Noktaları (Trace 1 - Beyaz/Mavi)
         fig.add_trace(go.Scatter(
             x=wp_x, y=wp_y, mode='markers',
-            marker=dict(color='#ffffff', size=5, line=dict(color='rgba(46, 125, 50, 0.5)', width=1)),
+            marker=dict(color='#ffffff', size=5, line=dict(color='#00e5ff', width=2)),
             hoverinfo='skip'
         ))
 
@@ -615,12 +626,12 @@ else:
             def get_box_x(cx, w): return [cx-w/2, cx+w/2, cx+w/2, cx-w/2, cx-w/2]
             def get_box_y(cy, w): return [cy-w/2, cy-w/2, cy+w/2, cy+w/2, cy-w/2]
 
-            # 4. Kamera Görüntü Alanı Kutusu - Başlangıç (Trace 2)
+            # 4. Kamera Görüntü Alanı Kutusu - Başlangıç (Trace 2 - Radar Mavisi)
             fig.add_trace(go.Scatter(
                 x=get_box_x(wp_x[0], kapsama_genisligi), 
                 y=get_box_y(wp_y[0], kapsama_genisligi),
-                fill='toself', fillcolor='rgba(79, 195, 247, 0.25)',
-                line=dict(color='#4fc3f7', width=2),
+                fill='toself', fillcolor='rgba(0, 229, 255, 0.25)',
+                line=dict(color='#00e5ff', width=2, dash='dot'),
                 hoverinfo='skip'
             ))
 
@@ -636,7 +647,6 @@ else:
             for i in range(len(wp_x)):
                 frames.append(go.Frame(
                     data=[
-                        # Sadece Trace 2 (Kutu) ve Trace 3 (Drone) güncellenir
                         go.Scatter(x=get_box_x(wp_x[i], kapsama_genisligi), y=get_box_y(wp_y[i], kapsama_genisligi)),
                         go.Scatter(x=[wp_x[i]], y=[wp_y[i]])
                     ],
@@ -652,7 +662,7 @@ else:
                     x=0.5, y=1.15, xanchor="center", yanchor="bottom",
                     direction="left",
                     buttons=[
-                        dict(label="▶️ Uçuşu Başlat", method="animate", 
+                        dict(label="▶️ Otonom Uçuşu Başlat", method="animate", 
                              args=[None, dict(frame=dict(duration=400, redraw=False), 
                                               transition=dict(duration=400, easing="linear"), 
                                               fromcurrent=True, mode="immediate")]),
