@@ -534,17 +534,28 @@ else:
     # ------------------------------------------
     # SEKME 4: DRONE UÇUŞ PLANLAYICI (FAZ-2) - GERÇEKÇİ SİMÜLASYON
     # ------------------------------------------
-    # ------------------------------------------
-    # SEKME 4: DRONE UÇUŞ PLANLAYICI (FAZ-2) - GERÇEKÇİ SİMÜLASYON
-    # ------------------------------------------
     with tab4:
         st.markdown('<span class="section-label">🚁 Otonom Drone Uçuş Planlayıcı (Uydu Haritası)</span>', unsafe_allow_html=True)
         st.markdown("""
         <p style='font-size:0.9rem; opacity:0.8;'>
         Büyük ölçekli ticari tarlalarda sensör maliyetini ortadan kaldırmak için planlanan <b>Faz-2 Su Stresi Haritalama</b> modülüdür. 
-        Aşağıdaki 'Play' butonuna basarak drone'un senin sağladığın gerçek arazi görüntüsü üzerindeki otonom tarama uçuşunu izleyebilirsin.
+        Aşağıdaki 'Play' butonuna basarak drone'un senin GitHub'ına yüklediğin gerçek arazi görüntüsü üzerindeki otonom tarama uçuşunu izleyebilirsin.
         </p>
         """, unsafe_allow_html=True)
+
+        # ------------------------------------------------------------------
+        # 🔥 [ADIM 3: KRİTİK DEĞİŞİKLİK] 🔥
+        # GitHub'dan aldığın o RAW linkini aşağıdaki tırnak işaretlerinin ("") içine yapıştır!
+        # Link 'https://raw.githubusercontent.com/...' ile başlamalıdır.
+        # ------------------------------------------------------------------
+        SENIN_GITHUB_RESIM_LINKIN = "BURAYA_KOPYALADIGIN_RAW_LINKI_YAPISTIR" 
+        # ------------------------------------------------------------------
+
+        if SENIN_GITHUB_RESIM_LINKIN == "BURAYA_KOPYALADIGIN_RAW_LINKI_YAPISTIR":
+             st.warning("⚠️ Lütfen koddaki 'SENIN_GITHUB_RESIM_LINKIN' değişkenine GitHub'dan aldığın RAW resim linkini yapıştır!")
+             GITHUB_GELIŞTIRME_MODE = False
+        else:
+             GITHUB_GELIŞTIRME_MODE = True
 
         # Parametre Ayarları
         col_slider1, col_slider2 = st.columns(2)
@@ -590,18 +601,19 @@ else:
         # Plotly Animasyon Çizimi
         fig = go.Figure()
 
-        # 1. Senin Sağladığın Gerçekçi Arazi Görüntüsü (Arka Plan)
-        fig.add_layout_image(
-            dict(
-                source="https://raw.githubusercontent.com/meriderin/botanix-assets/main/image_5.png", # Senin görselin URL'si
-                xref="x", yref="y",
-                x=0, y=tarla_boyutu,
-                sizex=tarla_boyutu, sizey=tarla_boyutu,
-                sizing="stretch",
-                opacity=0.8,
-                layer="below"
+        # 1. Senin GitHub'daki Gerçekçi Arazi Görüntüsü (Arka Plan)
+        if GITHUB_GELIŞTIRME_MODE:
+            fig.add_layout_image(
+                dict(
+                    source=SENIN_GITHUB_RESIM_LINKIN, # Değişkenden okuyoruz
+                    xref="x", yref="y",
+                    x=0, y=tarla_boyutu,
+                    sizex=tarla_boyutu, sizey=tarla_boyutu,
+                    sizing="stretch",
+                    opacity=0.8,
+                    layer="below"
+                )
             )
-        )
 
         # Harita Sınır Çizgisi (Kesik Beyaz Çizgi)
         fig.add_shape(type="rect",
