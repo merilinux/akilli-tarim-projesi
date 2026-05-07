@@ -532,13 +532,14 @@ else:
 
    
     # ------------------------------------------
-    # SEKME 4: DRONE UÇUŞ PLANLAYICI (FAZ-2) - GERÇEKÇİ SİMÜLASYON VE POLİGON
+    # SEKME 4: DRONE UÇUŞ PLANLAYICI (FAZ-2) - KUSURSUZ POLİGON ALGORİTMASI
     # ------------------------------------------
     with tab4:
         st.markdown('<span class="section-label">🚁 Otonom Drone Uçuş Planlayıcı (Uydu Haritası)</span>', unsafe_allow_html=True)
         st.markdown("""
         <p style='font-size:0.9rem; opacity:0.8;'>
         Ticari tarlalarda sadece çiftçinin belirlediği sınırların (poligon) içini taramak için geliştirilmiş <b>Otonom Alan Tarama</b> algoritmasıdır.
+        Yeni "Sınıra Kenetlenme" özelliği ile kenarlarda boşluk kalmaz.
         </p>
         """, unsafe_allow_html=True)
 
@@ -553,14 +554,14 @@ else:
                 x1 = st.number_input("Sol Alt X", value=20)
                 y1 = st.number_input("Sol Alt Y", value=20)
             with c2:
-                x2 = st.number_input("Sağ Alt X", value=190)
-                y2 = st.number_input("Sağ Alt Y", value=40)
+                x2 = st.number_input("Sağ Alt X", value=180)
+                y2 = st.number_input("Sağ Alt Y", value=20)
             with c3:
-                x3 = st.number_input("Sağ Üst X", value=170)
+                x3 = st.number_input("Sağ Üst X", value=180)
                 y3 = st.number_input("Sağ Üst Y", value=180)
             with c4:
-                x4 = st.number_input("Sol Üst X", value=50)
-                y4 = st.number_input("Sol Üst Y", value=190)
+                x4 = st.number_input("Sol Üst X", value=20)
+                y4 = st.number_input("Sol Üst Y", value=180)
 
         # Poligon Noktaları Dizisi
         poligon = [(x1, y1), (x2, y2), (x3, y3), (x4, y4)]
@@ -572,49 +573,64 @@ else:
         with col_slider2:
             binisme = st.slider("Binişme Oranı (%)", min_value=50, max_value=90, value=70, step=5)
 
-        # Matematiksel Hesaplamalar ve Otonom Rota Algoritması
+        # Matematiksel Hesaplamalar
         kamera_gorus_acisi = 1.5 
         kapsama_genisligi = irtifa * kamera_gorus_acisi
         adim_mesafesi = kapsama_genisligi * (1 - (binisme / 100.0))
         if adim_mesafesi < 5: adim_mesafesi = 5 
 
-        # Poligonun en alt ve en üst sınırlarını bul
+        # Poligonun Y eksenindeki sınırları
         min_y = min(p[1] for p in poligon)
         max_y = max(p[1] for p in poligon)
 
         wp_x, wp_y = [], []
+        # Drone kamerasının dışarı taşmaması için güvenli Y başlangıcı
         mevcut_y = min_y + (kapsama_genisligi / 2)
         yon = 1 
 
-        # Işın İzleme (Ray Casting) Tabanlı Poligon İçi Rota Hesaplama
+        # 🔥 YENİ: KUSURSUZ IŞIN İZLEME (RAY CASTING) VE SINIRA KENETLENME
         while mevcut_y <= max_y - (kapsama_genisligi / 2):
             kesisimler = []
-            # Poligonun 4 kenarı ile yatay tarama çizgisinin kesişim noktalarını bul
+            # Poligon kenarları ile kesişimi bul
             for i in range(4):
                 pA = poligon[i]
                 pB = poligon[(i+1) % 4]
-                # Eğer yatay çizgi bu kenarı kesiyorsa
                 if (pA[1] <= mevcut_y < pB[1]) or (pB[1] <= mevcut_y < pA[1]):
-                    if pB[1] != pA[1]: # Sıfıra bölünme hatasını önle
+                    if pB[1] != pA[1]: 
                         ix = pA[0] + (mevcut_y - pA[1]) * (pB[0] - pA[0]) / (pB[1] - pA[1])
                         kesisimler.append(ix)
             
-            # Eğer çizgi poligonun içinden geçiyorsa (2 kesisim noktası vardır)
             if len(kesisimler) >= 2:
                 kesisimler.sort()
-                # Drone kamerasının dışarı taşmaması için güvenli başlangıç ve bitiş
+                # Drone'un gövdesi tam sınırda olursa kamera dışarıyı da çeker.
+                # Sadece tarlayı çekmesi için kameranın yarısı kadar içeri itiyoruz.
                 baslangic_x = kesisimler[0] + (kapsama_genisligi / 2)
-                bitis_x = kesisimler[1] - (kapsama_genisligi / 2)
+                bitis_x = kesisimler[-1] - (kapsama_genisligi / 2)
 
                 if baslangic_x <= bitis_x:
-                    mx = baslangic_x if yon == 1 else bitis_x
-                    hx = bitis_x if yon == 1 else baslangic_x
+                    satir_noktalari = []
+                    
+                    # 1. KUSURSUZ BAŞLANGIÇ: Tam sınırdan başla! (Boşluk kalmasın)
+                    satir_noktalari.append(baslangic_x)
+                    
+                    # 2. Orta adımları at
+                    mx = baslangic_x + adim_mesafesi
+                    while mx < bitis_x:
+                        satir_noktalari.append(mx)
+                        mx += adim_mesafesi
+                        
+                    # 3. KUSURSUZ BİTİŞ: Tam sınırda bitir! (Boşluk kalmasın)
+                    if abs(satir_noktalari[-1] - bitis_x) > 0.5: # 0.5 metre hassasiyet
+                        satir_noktalari.append(bitis_x)
 
-                    # O satırdaki noktaları ekle
-                    while (yon == 1 and mx <= hx) or (yon == -1 and mx >= hx):
-                        wp_x.append(mx)
+                    # Sağa veya sola gitmesine göre listeyi çevir
+                    if yon == -1:
+                        satir_noktalari.reverse()
+                        
+                    # Koordinatları ana listeye ekle
+                    for nx in satir_noktalari:
+                        wp_x.append(nx)
                         wp_y.append(mevcut_y)
-                        mx += adim_mesafesi * yon
 
             mevcut_y += adim_mesafesi
             yon *= -1 
@@ -636,12 +652,12 @@ else:
                 dict(
                     source=SENIN_GITHUB_RESIM_LINKIN, 
                     xref="x", yref="y",
-                    x=0, y=220, sizex=220, sizey=220,
+                    x=0, y=200, sizex=200, sizey=200,
                     sizing="stretch", opacity=0.8, layer="below"
                 )
             )
 
-        # 2. Çiftçinin Seçtiği Poligon Sınırı (Kırmızı Kesik Çizgi ve Hafif Kırmızı Dolgu)
+        # 2. Çiftçinin Seçtiği Poligon Sınırı (Kırmızı Kesik Çizgi)
         poligon_x = [x1, x2, x3, x4, x1]
         poligon_y = [y1, y2, y3, y4, y1]
         fig.add_trace(go.Scatter(
@@ -680,7 +696,7 @@ else:
                     data=[
                         go.Scatter(x=get_box_x(wp_x[i], kapsama_genisligi), y=get_box_y(wp_y[i], kapsama_genisligi)),
                         go.Scatter(x=[wp_x[i]], y=[wp_y[i]])
-                    ], traces=[3, 4] # İndeksler poligon çizgisinden dolayı kaydı
+                    ], traces=[3, 4] 
                 ))
             fig.frames = frames
 
@@ -698,8 +714,8 @@ else:
         # Zoom Mekanizması
         zoom_payi = (irtifa - 30) * 1.0 
         fig.update_layout(
-            xaxis=dict(range=[-zoom_payi, 220 + zoom_payi], showgrid=False, zeroline=False, visible=False),
-            yaxis=dict(range=[-zoom_payi, 220 + zoom_payi], showgrid=False, zeroline=False, visible=False),
+            xaxis=dict(range=[-zoom_payi, 200 + zoom_payi], showgrid=False, zeroline=False, visible=False),
+            yaxis=dict(range=[-zoom_payi, 200 + zoom_payi], showgrid=False, zeroline=False, visible=False),
             plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
             margin=dict(l=0, r=0, t=60, b=0), height=500, showlegend=False
         )
