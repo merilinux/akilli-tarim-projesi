@@ -533,12 +533,15 @@ else:
     # ------------------------------------------
     # SEKME 4: DRONE UÇUŞ PLANLAYICI (FAZ-2)
     # ------------------------------------------
+    # ------------------------------------------
+    # SEKME 4: DRONE UÇUŞ PLANLAYICI (FAZ-2) - ANİMASYONLU
+    # ------------------------------------------
     with tab4:
         st.markdown('<span class="section-label">🚁 Otonom Drone Uçuş Planlayıcı (Grid Simülasyonu)</span>', unsafe_allow_html=True)
         st.markdown("""
         <p style='font-size:0.9rem; opacity:0.8;'>
-        Büyük ölçekli ticari tarlalarda fiziksel sensör maliyetini ortadan kaldırmak için planlanan <b>Faz-2 Su Stresi Haritalama</b> modülüdür. 
-        Drone'un multispektral kamerayla tarlayı taraması için otonom waypoint'ler hesaplanır.
+        Büyük ölçekli ticari tarlalarda sensör maliyetini ortadan kaldırmak için planlanan <b>Faz-2 Su Stresi Haritalama</b> modülüdür. 
+        Drone'un multispektral kamerayla tarlayı taraması için otonom uçuş animasyonunu aşağıdaki 'Play' butonundan başlatabilirsiniz.
         </p>
         """, unsafe_allow_html=True)
 
@@ -583,49 +586,89 @@ else:
         drone_hizi = 5 # m/s varsayılan
         tahmini_sure = (toplam_mesafe / drone_hizi) / 60 
 
-        # Plotly Çizimi
+        # Plotly Animasyon Çizimi
         fig = go.Figure()
 
-        # Tarlanın Sınırları
+        # 1. Tarlanın Sınırları (Statik)
         fig.add_shape(type="rect",
             x0=0, y0=0, x1=tarla_boyutu, y1=tarla_boyutu,
             line=dict(color="rgba(129, 199, 132, 0.5)", width=2, dash="dash"),
             fillcolor="rgba(46, 125, 50, 0.1)"
         )
 
-        # Uçuş Rotası
+        # 2. Uçuş Rotası Çizgisi (Trace 0)
         fig.add_trace(go.Scatter(
             x=wp_x, y=wp_y, mode='lines',
-            line=dict(color='#81c784', width=2),
-            name='Uçuş Rotası'
+            line=dict(color='rgba(129, 199, 132, 0.6)', width=2),
+            hoverinfo='skip'
         ))
 
-        # Waypoint Noktaları
+        # 3. Waypoint Noktaları (Trace 1)
         fig.add_trace(go.Scatter(
             x=wp_x, y=wp_y, mode='markers',
-            marker=dict(color='#ffffff', size=6, line=dict(color='#2e7d32', width=2)),
-            name='Waypoint'
+            marker=dict(color='#ffffff', size=5, line=dict(color='rgba(46, 125, 50, 0.5)', width=1)),
+            hoverinfo='skip'
         ))
 
-        # Kamera Kapsama Alanı Görüntüsü (İlk Nokta İçin)
         if wp_x and wp_y:
-            ornek_x, ornek_y = wp_x[0], wp_y[0]
-            fig.add_shape(type="rect",
-                x0=ornek_x - kapsama_genisligi/2, y0=ornek_y - kapsama_genisligi/2,
-                x1=ornek_x + kapsama_genisligi/2, y1=ornek_y + kapsama_genisligi/2,
-                line=dict(color="#4fc3f7", width=2),
-                fillcolor="rgba(79, 195, 247, 0.2)"
+            # Görüntü Alanı Kutusu Çizme Yardımcısı
+            def get_box_x(cx, w): return [cx-w/2, cx+w/2, cx+w/2, cx-w/2, cx-w/2]
+            def get_box_y(cy, w): return [cy-w/2, cy-w/2, cy+w/2, cy+w/2, cy-w/2]
+
+            # 4. Kamera Görüntü Alanı Kutusu - Başlangıç (Trace 2)
+            fig.add_trace(go.Scatter(
+                x=get_box_x(wp_x[0], kapsama_genisligi), 
+                y=get_box_y(wp_y[0], kapsama_genisligi),
+                fill='toself', fillcolor='rgba(79, 195, 247, 0.25)',
+                line=dict(color='#4fc3f7', width=2),
+                hoverinfo='skip'
+            ))
+
+            # 5. Drone Simgesi - Başlangıç (Trace 3)
+            fig.add_trace(go.Scatter(
+                x=[wp_x[0]], y=[wp_y[0]], mode='text',
+                text=['🚁'], textfont=dict(size=38),
+                hoverinfo='skip'
+            ))
+
+            # Animasyon Kareleri (Frames) Oluşturulması
+            frames = []
+            for i in range(len(wp_x)):
+                frames.append(go.Frame(
+                    data=[
+                        # Sadece Trace 2 (Kutu) ve Trace 3 (Drone) güncellenir
+                        go.Scatter(x=get_box_x(wp_x[i], kapsama_genisligi), y=get_box_y(wp_y[i], kapsama_genisligi)),
+                        go.Scatter(x=[wp_x[i]], y=[wp_y[i]])
+                    ],
+                    traces=[2, 3]
+                ))
+            fig.frames = frames
+
+            # Animasyon Butonları (Play / Pause)
+            fig.update_layout(
+                updatemenus=[dict(
+                    type="buttons",
+                    showactive=False,
+                    x=0.5, y=1.15, xanchor="center", yanchor="bottom",
+                    direction="left",
+                    buttons=[
+                        dict(label="▶️ Uçuşu Başlat", method="animate", 
+                             args=[None, dict(frame=dict(duration=400, redraw=False), 
+                                              transition=dict(duration=400, easing="linear"), 
+                                              fromcurrent=True, mode="immediate")]),
+                        dict(label="⏸️ Durdur", method="animate", 
+                             args=[[None], dict(frame=dict(duration=0, redraw=False), 
+                                                mode="immediate", transition=dict(duration=0))])
+                    ]
+                )]
             )
-            fig.add_trace(go.Scatter(x=[ornek_x], y=[ornek_y], mode='text', text=['📷 Görüntü Alanı'], textposition="top right", showlegend=False))
 
         fig.update_layout(
-            xaxis=dict(range=[-10, tarla_boyutu+10], showgrid=False, zeroline=False, visible=False),
-            yaxis=dict(range=[-10, tarla_boyutu+10], showgrid=False, zeroline=False, visible=False),
-            plot_bgcolor="rgba(0,0,0,0)",
-            paper_bgcolor="rgba(0,0,0,0)",
-            margin=dict(l=0, r=0, t=30, b=0),
-            height=450,
-            showlegend=False
+            xaxis=dict(range=[-20, tarla_boyutu+20], showgrid=False, zeroline=False, visible=False),
+            yaxis=dict(range=[-20, tarla_boyutu+20], showgrid=False, zeroline=False, visible=False),
+            plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+            margin=dict(l=0, r=0, t=60, b=0),
+            height=500, showlegend=False
         )
 
         st.plotly_chart(fig, use_container_width=True)
@@ -633,5 +676,5 @@ else:
         # Metrikler
         met1, met2, met3 = st.columns(3)
         met1.metric("📌 Toplam Waypoint", f"{toplam_waypoint} Adet")
-        met2.metric("📏 Toplam Rota", f"{int(toplam_mesafe)} Metre")
-        met3.metric("⏱️ Tahmini Uçuş", f"{tahmini_sure:.1f} Dk")
+        met2.metric("📏 Toplam Rota Uzunluğu", f"{int(toplam_mesafe)} Metre")
+        met3.metric("⏱️ Tahmini Uçuş Süresi", f"{tahmini_sure:.1f} Dakika")
