@@ -61,16 +61,16 @@ st.markdown("### 🚀 Otonom Filo Yönetimi")
 if st.button("🛰️ İHA'yı Uçur ve Tarlayı Otonom Tara", type="primary", use_container_width=True):
     st.session_state.gorev_bitti = False
     
-    # Çekilecek Örnek Fotoğraflar (Tarlanın farklı köşeleri)
+    # Asla bot korumasına takılmayan Wikipedia Commons Çilek Fotoğrafları
     hedef_fotograflar = [
-        "https://images.unsplash.com/photo-1596199050105-6d5d32222916?q=80&w=500", # Bol çilek
-        "https://images.unsplash.com/photo-1518133501097-09d57a22f360?q=80&w=500", # Az çilek
-        "https://images.unsplash.com/photo-1596199050105-6d5d32222916?q=80&w=500", # Bol çilek
-        "https://images.unsplash.com/photo-1518133501097-09d57a22f360?q=80&w=500"  # Az çilek
+        "https://upload.wikimedia.org/wikipedia/commons/thumb/2/29/PerfectStrawberry.jpg/500px-PerfectStrawberry.jpg", # Olgun
+        "https://upload.wikimedia.org/wikipedia/commons/thumb/1/11/Unripe_strawberry.jpg/500px-Unripe_strawberry.jpg", # Ham
+        "https://upload.wikimedia.org/wikipedia/commons/thumb/2/29/PerfectStrawberry.jpg/500px-PerfectStrawberry.jpg", # Olgun
+        "https://upload.wikimedia.org/wikipedia/commons/thumb/1/11/Unripe_strawberry.jpg/500px-Unripe_strawberry.jpg"  # Ham
     ]
     
     toplam_olgunluk = 0
-    headers = {'User-Agent': 'Mozilla/5.0'}
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
 
     # 🚁 DÖNGÜ: İHA HARİTADA GEZERKEN KAMERA GÖRÜNTÜ İŞLER
     for i in range(len(wp_lon)):
@@ -89,16 +89,24 @@ if st.button("🛰️ İHA'yı Uçur ve Tarlayı Otonom Tara", type="primary", u
         # 2. KAMERAYI VE YAPAY ZEKAYI GÜNCELLE
         durum_paneli.warning(f"📍 Hedef {i+1} Noktası Taranıyor...")
         
-        # İnternetten resmi çek
-        response = requests.get(hedef_fotograflar[i], headers=headers)
-        img_pil = Image.open(BytesIO(response.content))
-        img_cv = np.array(img_pil)
+        try:
+            # Görüntüyü internetten güvenli şekilde çek
+            response = requests.get(hedef_fotograflar[i], headers=headers, timeout=5)
+            response.raise_for_status() # İnternet/Site hatası varsa doğrudan except'e atla!
+            img_pil = Image.open(BytesIO(response.content))
+            img_cv = np.array(img_pil)
+        except Exception as e:
+            # İNTERNET KOPARSA VEYA RESİM İNMEZSE SİSTEMİ ÇÖKERTME! Siyah bir "Sinyal Yok" ekranı oluştur.
+            img_cv = np.zeros((300, 500, 3), dtype=np.uint8)
+            cv2.putText(img_cv, "KAMERA SINYAL KAYBI", (30, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 3) # Kırmızı uyarı
         
         # OpenCV Kırmızı (Olgun) Tespiti
         hsv = cv2.cvtColor(img_cv, cv2.COLOR_RGB2HSV)
         maske1 = cv2.inRange(hsv, np.array([0, 100, 100]), np.array([10, 255, 255]))
         maske2 = cv2.inRange(hsv, np.array([160, 100, 100]), np.array([180, 255, 255]))
         tam_maske = maske1 + maske2
+        
+        # Eğer sinyal kaybı varsa yapay zeka siyah ekrana işlem yapar, çökmez.
         sonuc = cv2.bitwise_and(img_cv, img_cv, mask=tam_maske)
         
         # Resmi sağ ekrana bas (Yapay zeka filtresiyle)
@@ -106,7 +114,14 @@ if st.button("🛰️ İHA'yı Uçur ve Tarlayı Otonom Tara", type="primary", u
         
         # Skoru hesapla
         kirmizi_piksel = cv2.countNonZero(tam_maske)
-        oran = (kirmizi_piksel / (img_cv.shape[0] * img_cv.shape[1])) * 100 * 5
+        toplam_piksel = img_cv.shape[0] * img_cv.shape[1]
+        
+        # Sinyal kaybı (siyah ekran) olduysa 0'a bölme hatasını önle
+        if toplam_piksel > 0:
+            oran = (kirmizi_piksel / toplam_piksel) * 100 * 5
+        else:
+            oran = 0
+            
         toplam_olgunluk += oran
         ai_sonuc_paneli.info(f"Anlık Olgunluk Skoru: %{oran:.1f}")
         
