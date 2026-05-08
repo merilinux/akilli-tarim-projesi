@@ -77,7 +77,7 @@ if st.button("🛰️ İHA'yı Uçur ve Tarlayı Otonom Tara", type="primary", u
         # 1. HARİTAYI GÜNCELLE
         fig = go.Figure()
         fig.add_trace(go.Scattermapbox(lat=tarla_lat, lon=tarla_lon, mode='lines', fill='toself', name="Tarla Sınırı", marker=dict(color='cyan')))
-        fig.add_trace(go.Scattermapbox(lat=wp_lat, lon=wp_lon, mode='lines', name="Otonom Rota", line=dict(color='yellow', dash='dot')))
+        fig.add_trace(go.Scattermapbox(lat=wp_lat, lon=wp_lon, mode='lines', name="Otonom Rota", line=dict(color='yellow', width=3)))
         fig.add_trace(go.Scattermapbox(lat=[wp_lat[i]], lon=[wp_lon[i]], mode='markers+text', text=['🚁'], textfont=dict(size=35), name="İHA"))
         
         fig.update_layout(
