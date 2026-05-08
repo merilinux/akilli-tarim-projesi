@@ -7,7 +7,7 @@ import os
 import json
 import requests
 from datetime import datetime
-import plotly.graph_objects as go  # YENİ: Drone rotası çizimi için eklendi
+import plotly.graph_objects as go  # Drone rotası çizimi için eklendi
 
 # ==========================================
 # SAYFA AYARLARI VE ŞEFFAF/ESNEK TASARIM (CSS)
@@ -685,12 +685,25 @@ else:
                 ]
             )])
 
-        # Kamera Zoom Mekanizması
-        zoom = (irtifa - 30) * 1.5 
+        # OTO-ODAKLANMA (Dinamik Autoscale) MEKANİZMASI
+        # Tarlanın ve kameranın kusursuz sığacağı matematiksel çerçeve (Bounding Box)
+        padding = kapsama * 0.8  # Drone dönüşlerinde kameranın kesilmemesi için güvenli kenar boşluğu
+        
         fig.update_layout(
-            xaxis=dict(range=[-zoom, tarla_genisligi + zoom], showgrid=False, zeroline=False, visible=False),
-            yaxis=dict(range=[-zoom, tarla_uzunlugu + zoom], scaleanchor="x", scaleratio=1, showgrid=False, zeroline=False, visible=False),
-            plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", margin=dict(l=0, r=0, t=50, b=0), height=450, showlegend=False
+            # X ve Y eksenlerini doğrudan tarlanın bulunduğu koordinatlara kilitliyoruz
+            xaxis=dict(
+                range=[tarla_min_x - padding, tarla_max_x + padding], 
+                showgrid=False, zeroline=False, visible=False
+            ),
+            yaxis=dict(
+                range=[tarla_min_y - padding, tarla_max_y + padding], 
+                scaleanchor="x", scaleratio=1, showgrid=False, zeroline=False, visible=False
+            ),
+            plot_bgcolor="rgba(0,0,0,0)", 
+            paper_bgcolor="rgba(0,0,0,0)", 
+            margin=dict(l=0, r=0, t=20, b=0), 
+            height=550,  
+            showlegend=False
         )
 
         st.plotly_chart(fig, use_container_width=True)
