@@ -1,148 +1,133 @@
 import streamlit as st
+from streamlit_folium import st_folium
+import folium
 import plotly.graph_objects as go
 import numpy as np
-import cv2
 import requests
 from PIL import Image
 from io import BytesIO
 import time
 
-st.set_page_config(layout="wide", page_title="BotaniX Ana Komuta Merkezi")
-
-# ==========================================
-# 1. ÜST PANEL: IOT SENSÖR VERİLERİ
-# ==========================================
 st.markdown("""
-<div style="text-align:center; padding: 10px; margin-bottom: 20px;">
-    <h1>🌍 BotaniX Otonom Çiftlik Komuta Merkezi</h1>
-    <p style="font-size: 1.2rem; opacity: 0.8;">Tüm Filo, Arazi ve Yapay Zeka Verileri Tek Ekranda</p>
+<div style="text-align:center; padding: 10px; margin-bottom: 10px;">
+    <h1>🌿 Botanix Otonom Filo</h1>
+    <p style="font-size: 1rem; opacity: 0.8;">Taktik Harita ve FPV Kamera Merkezi</p>
 </div>
 """, unsafe_allow_html=True)
 
-st.markdown("### 📡 Tarladan Canlı IoT Telemetrisi")
-col1, col2, col3, col4 = st.columns(4)
-col1.metric("🌡 Sıcaklık", "26.5 °C", "Normal")
-col2.metric("💧 Hava Nemi", "%55", "-%2")
-col3.metric("🌱 Toprak Nemi", "%60", "Sulama İstenmiyor")
-col4.metric("🔋 Filo Bataryası", "%92", "İHA & İKA Hazır")
+# Çekilen fotoğrafları hafızada tutmak için
+if 'cekilen_fotograflar' not in st.session_state:
+    st.session_state.cekilen_fotograflar = []
+
+if 'drawn_coords' not in st.session_state:
+    st.session_state.drawn_coords = None
+
+st.markdown('<span class="section-label">📍 1. Adım: Tarlanı Uydu Üzerinde Çiz</span>', unsafe_allow_html=True)
+
+KONYA_COORDS = [37.8715, 32.4846]
+m = folium.Map(location=KONYA_COORDS, zoom_start=16)
+folium.TileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', attr='Google', name='Google Earth').add_to(m)
+
+from folium.plugins import Draw
+Draw(
+    export=False, position='topleft',
+    draw_options={'polyline': False, 'rectangle': False, 'circle': False, 'marker': False, 'circlemarker': False,
+                  'polygon': {'showArea': True, 'metric': True, 'shapeOptions': {'color': 'cyan'}}}
+).add_to(m)
+
+output = st_folium(m, width=900, height=400, key="folium_map")
+
+if output['last_active_drawing'] and output['last_active_drawing']['geometry']['type'] == 'Polygon':
+    st.session_state.drawn_coords = output['last_active_drawing']['geometry']['coordinates'][0]
+
 st.divider()
 
-# ==========================================
-# 2. ORTA PANEL: DİJİTAL İKİZ VE YAPAY ZEKA
-# ==========================================
-harita_sutunu, kamera_sutunu = st.columns([1.5, 1], gap="large")
+st.markdown('<span class="section-label">🎮 2. Adım: Otonom Uçuş ve Canlı Kamera İzleme</span>', unsafe_allow_html=True)
 
-with harita_sutunu:
-    st.markdown("### 🗺️ Taktik Harita (Tüm Tarla)")
-    harita_ekrani = st.empty()
+if st.session_state.drawn_coords and len(st.session_state.drawn_coords) > 3:
+    poligon_koordinat = np.array(st.session_state.drawn_coords)
+    min_lon, max_lon = poligon_koordinat[:, 0].min(), poligon_koordinat[:, 0].max()
+    min_lat, max_lat = poligon_koordinat[:, 1].min(), poligon_koordinat[:, 1].max()
 
-with kamera_sutunu:
-    st.markdown("### 🤖 FPV Kamera & Yapay Zeka")
-    kamera_ekrani = st.empty()
-    durum_paneli = st.empty()
-    ai_sonuc_paneli = st.empty()
+    # Rota Hesaplama
+    wp_x, wp_y = [], []
+    y_adimlar = np.linspace(min_lat, max_lat, 4) # Hızlı simülasyon için 4 satır
+    yon = 1 
+    for y in y_adimlar:
+        satir_x = np.linspace(min_lon, max_lon, 4)
+        if yon == -1: satir_x = np.flip(satir_x)
+        for x in satir_x:
+            wp_x.append(x)
+            wp_y.append(y)
+        yon *= -1
 
-# Tarlanın Sabit Koordinatları (Konya) ve Rota
-tarla_lon = [32.4840, 32.4850, 32.4850, 32.4840, 32.4840]
-tarla_lat = [37.8710, 37.8710, 37.8720, 37.8720, 37.8710]
-wp_lon = [32.4842, 32.4848, 32.4848, 32.4842]
-wp_lat = [37.8712, 37.8712, 37.8718, 37.8718]
-
-# Simülasyon Hafızası
-if 'olgunluk_orani' not in st.session_state:
-    st.session_state.olgunluk_orani = 0
-if 'gorev_bitti' not in st.session_state:
-    st.session_state.gorev_bitti = False
-
-# ==========================================
-# 3. ALT PANEL: AKSİYON VE OTONOMİ
-# ==========================================
-st.markdown("### 🚀 Otonom Filo Yönetimi")
-if st.button("🛰️ İHA'yı Uçur ve Tarlayı Otonom Tara", type="primary", use_container_width=True):
-    st.session_state.gorev_bitti = False
+    # EKRANI İKİYE BÖLÜYORUZ (Sol: Harita, Sağ: Kamera)
+    harita_alani, kamera_alani = st.columns([2, 1], gap="large")
     
-    # Asla bot korumasına takılmayan Wikipedia Commons Çilek Fotoğrafları
-    hedef_fotograflar = [
-        "https://upload.wikimedia.org/wikipedia/commons/thumb/2/29/PerfectStrawberry.jpg/500px-PerfectStrawberry.jpg", # Olgun
-        "https://upload.wikimedia.org/wikipedia/commons/thumb/1/11/Unripe_strawberry.jpg/500px-Unripe_strawberry.jpg", # Ham
-        "https://upload.wikimedia.org/wikipedia/commons/thumb/2/29/PerfectStrawberry.jpg/500px-PerfectStrawberry.jpg", # Olgun
-        "https://upload.wikimedia.org/wikipedia/commons/thumb/1/11/Unripe_strawberry.jpg/500px-Unripe_strawberry.jpg"  # Ham
-    ]
-    
-    toplam_olgunluk = 0
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+    with harita_alani:
+        st.markdown("**🗺️ Dijital İkiz (Taktik Harita)**")
+        harita_gosterge = st.empty() # Animasyon için boş çerçeve
 
-    # 🚁 DÖNGÜ: İHA HARİTADA GEZERKEN KAMERA GÖRÜNTÜ İŞLER
-    for i in range(len(wp_lon)):
-        # 1. HARİTAYI GÜNCELLE
-        fig = go.Figure()
-        fig.add_trace(go.Scattermapbox(lat=tarla_lat, lon=tarla_lon, mode='lines', fill='toself', name="Tarla Sınırı", marker=dict(color='cyan')))
-        fig.add_trace(go.Scattermapbox(lat=wp_lat, lon=wp_lon, mode='lines', name="Otonom Rota", line=dict(color='yellow', width=3)))
-        fig.add_trace(go.Scattermapbox(lat=[wp_lat[i]], lon=[wp_lon[i]], mode='markers+text', text=['🚁'], textfont=dict(size=35), name="İHA"))
+    with kamera_alani:
+        st.markdown("**📸 İHA Sanal Kamera (FPV)**")
+        kamera_gosterge = st.empty() # Kameranın fotoğraf basacağı boş çerçeve
+        durum_metni = st.empty()
+
+    if st.button("▶️ Uçuşu Başlat ve Görüntü Al", use_container_width=True):
         
-        fig.update_layout(
-            mapbox=dict(style="carto-darkmatter", center=dict(lat=37.8715, lon=32.4845), zoom=16.5),
-            margin=dict(l=0, r=0, t=0, b=0), height=400, showlegend=False
-        )
-        harita_ekrani.plotly_chart(fig, use_container_width=True)
-        
-        # 2. KAMERAYI VE YAPAY ZEKAYI GÜNCELLE
-        durum_paneli.warning(f"📍 Hedef {i+1} Noktası Taranıyor...")
-        
-        try:
-            # Görüntüyü internetten güvenli şekilde çek
-            response = requests.get(hedef_fotograflar[i], headers=headers, timeout=5)
-            response.raise_for_status() # İnternet/Site hatası varsa doğrudan except'e atla!
-            img_pil = Image.open(BytesIO(response.content))
-            img_cv = np.array(img_pil)
-        except Exception as e:
-            # İNTERNET KOPARSA VEYA RESİM İNMEZSE SİSTEMİ ÇÖKERTME! Siyah bir "Sinyal Yok" ekranı oluştur.
-            img_cv = np.zeros((300, 500, 3), dtype=np.uint8)
-            cv2.putText(img_cv, "KAMERA SINYAL KAYBI", (30, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 3) # Kırmızı uyarı
-        
-        # OpenCV Kırmızı (Olgun) Tespiti
-        hsv = cv2.cvtColor(img_cv, cv2.COLOR_RGB2HSV)
-        maske1 = cv2.inRange(hsv, np.array([0, 100, 100]), np.array([10, 255, 255]))
-        maske2 = cv2.inRange(hsv, np.array([160, 100, 100]), np.array([180, 255, 255]))
-        tam_maske = maske1 + maske2
-        
-        # Eğer sinyal kaybı varsa yapay zeka siyah ekrana işlem yapar, çökmez.
-        sonuc = cv2.bitwise_and(img_cv, img_cv, mask=tam_maske)
-        
-        # Resmi sağ ekrana bas (Yapay zeka filtresiyle)
-        kamera_ekrani.image(sonuc, caption=f"Hedef {i+1} Yapay Zeka Analizi", use_container_width=True)
-        
-        # Skoru hesapla
-        kirmizi_piksel = cv2.countNonZero(tam_maske)
-        toplam_piksel = img_cv.shape[0] * img_cv.shape[1]
-        
-        # Sinyal kaybı (siyah ekran) olduysa 0'a bölme hatasını önle
-        if toplam_piksel > 0:
-            oran = (kirmizi_piksel / toplam_piksel) * 100 * 5
-        else:
-            oran = 0
+        # PYTHON İLE ANİMASYON VE CANLI UYDU KAMERASI DÖNGÜSÜ
+        for i in range(len(wp_x)):
+            # ==========================================
+            # 1. SOL EKRAN: TAKTİK HARİTA (Genel Görünüm)
+            # ==========================================
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(x=poligon_koordinat[:, 0], y=poligon_koordinat[:, 1], mode='lines', fill='toself', line=dict(color='cyan', dash="dash")))
+            fig.add_trace(go.Scatter(x=wp_x, y=wp_y, mode='lines', line=dict(color='yellow', dash='dot')))
+            fig.add_trace(go.Scatter(x=[wp_x[i]], y=[wp_y[i]], mode='text', text=['🚁'], textfont=dict(size=35)))
             
-        toplam_olgunluk += oran
-        ai_sonuc_paneli.info(f"Anlık Olgunluk Skoru: %{oran:.1f}")
-        
-        time.sleep(2) # Simülasyon hızı
-        
-    st.session_state.olgunluk_orani = toplam_olgunluk / len(wp_lon)
-    st.session_state.gorev_bitti = True
-    durum_paneli.success("✅ İHA Görevi Tamamladı! Üsse Dönülüyor.")
+            fig.update_layout(xaxis=dict(visible=False), yaxis=dict(visible=False), plot_bgcolor="rgba(0,0,0,0)", margin=dict(l=0, r=0, t=0, b=0), height=350, showlegend=False)
+            harita_gosterge.plotly_chart(fig, use_container_width=True)
 
-# ==========================================
-# 4. FİNAL KARARI (İKA HASADI)
-# ==========================================
-if st.session_state.gorev_bitti:
-    st.divider()
-    st.markdown(f"### 🎯 Tarla Genel Hasat Raporu: **%{st.session_state.olgunluk_orani:.1f} Olgun**")
-    
-    if st.session_state.olgunluk_orani > 15.0:
-        st.success("Tarlanın büyük bir kısmı hasada hazır!")
-        if st.button("🚜 İKA'yı (Otonom Traktör) Hasada Gönder", type="primary", use_container_width=True):
-            st.balloons()
-            st.success("✅ İKA Garajdan Çıktı! Otonom hasat işlemi başlatıldı.")
-            st.image("https://images.unsplash.com/photo-1628102491629-778571d893a3?q=80&w=1200", caption="İKA Canlı Operasyon Görüntüsü", use_container_width=True)
-    else:
-        st.warning("Tarladaki mahsul henüz tam olgunlaşmamış. İKA garajda bekletiliyor.")
+            # ==========================================
+            # 2. SAĞ EKRAN: İHA OPTİK KAMERASI (HUD Görünümü)
+            # ==========================================
+            durum_metni.warning(f"🎯 Hedef {i+1} / {len(wp_x)} - Görüntü İşleniyor...")
+            
+            # O anki koordinatın Google Earth uydu görüntüsünü "Kuşbakışı" çekiyoruz!
+            cam_fig = go.Figure(go.Scattermapbox(
+                lat=[wp_y[i]],
+                lon=[wp_x[i]],
+                mode='markers+text',
+                marker=go.scattermapbox.Marker(size=15, color='lime', symbol='cross'),
+                text=['[  HEDEF KİLİTLENDİ  ]'],
+                textposition="bottom center",
+                textfont=dict(color="lime", size=12)
+            ))
+
+            # Kamera ayarları: Yüksek Zoom ve Gerçek Uydu Görüntüsü
+            cam_fig.update_layout(
+                mapbox_style="white-bg",
+                mapbox_layers=[
+                    {
+                        "below": 'traces',
+                        "sourcetype": "raster",
+                        "source": ["https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}"] # Sadece uydu (yazısız)
+                    }
+                ],
+                mapbox=dict(
+                    center=go.layout.mapbox.Center(lat=wp_y[i], lon=wp_x[i]),
+                    zoom=19 # Kamerayı yere inanılmaz derecede yakınlaştırır
+                ),
+                margin=dict(l=0, r=0, t=0, b=0),
+                height=350,
+                showlegend=False
+            )
+            
+            # Kamerayı ekrana bas
+            kamera_gosterge.plotly_chart(cam_fig, use_container_width=True)
+            
+            time.sleep(1.5) # Drone 1.5 saniye sonra diğer noktaya geçsin
+
+        durum_metni.success(f"✅ Uçuş Tamamlandı! Tarlanın tamamı otonom olarak piksellendi.")
+else:
+    st.info("ℹ️ Tarlayı parselledikten sonra otonom uçuş paneli açılacaktır.")
