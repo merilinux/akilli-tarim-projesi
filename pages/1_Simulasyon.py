@@ -74,24 +74,12 @@ if st.session_state.drawn_coords and len(st.session_state.drawn_coords) > 3:
         durum_metni = st.empty()
 
     if st.button("▶️ Uçuşu Başlat ve Görüntü Al", use_container_width=True):
-        st.session_state.cekilen_fotograflar = [] # Yeni uçuşta hafızayı temizle
         
-        # Temsili Tarla Görüntüleri
-        sanal_fotograflar = [
-            "https://images.unsplash.com/photo-1592433054179-c5c2ab527e0a?w=500&q=80",
-            "https://images.unsplash.com/photo-1530836369250-ef71a3f5e92d?w=500&q=80",
-            "https://images.unsplash.com/photo-1628102491629-778571d893a3?w=500&q=80",
-            "https://images.unsplash.com/photo-1586771107445-d3afbf0d1ddb?w=500&q=80"
-        ]
-
-        # SİHİRLİ DOKUNUŞ: Python olduğumuzu gizleyip Google Chrome gibi davranıyoruz!
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        }
-
-        # PYTHON İLE ANİMASYON VE KAMERA DÖNGÜSÜ
+        # PYTHON İLE ANİMASYON VE CANLI UYDU KAMERASI DÖNGÜSÜ
         for i in range(len(wp_x)):
-            # 1. Haritayı Güncelle
+            # ==========================================
+            # 1. SOL EKRAN: TAKTİK HARİTA (Genel Görünüm)
+            # ==========================================
             fig = go.Figure()
             fig.add_trace(go.Scatter(x=poligon_koordinat[:, 0], y=poligon_koordinat[:, 1], mode='lines', fill='toself', line=dict(color='cyan', dash="dash")))
             fig.add_trace(go.Scatter(x=wp_x, y=wp_y, mode='lines', line=dict(color='yellow', dash='dot')))
@@ -100,28 +88,46 @@ if st.session_state.drawn_coords and len(st.session_state.drawn_coords) > 3:
             fig.update_layout(xaxis=dict(visible=False), yaxis=dict(visible=False), plot_bgcolor="rgba(0,0,0,0)", margin=dict(l=0, r=0, t=0, b=0), height=350, showlegend=False)
             harita_gosterge.plotly_chart(fig, use_container_width=True)
 
-            # 2. Kamera Görüntüsünü Al (HATA KORUMALI)
-            durum_metni.warning(f"Hedef {i+1} taranıyor...")
-            resim_url = sanal_fotograflar[i % len(sanal_fotograflar)] 
+            # ==========================================
+            # 2. SAĞ EKRAN: İHA OPTİK KAMERASI (HUD Görünümü)
+            # ==========================================
+            durum_metni.warning(f"🎯 Hedef {i+1} / {len(wp_x)} - Görüntü İşleniyor...")
             
-            try:
-                # Görüntüyü kodun içine çekiyoruz (Deklanşör + Kimlik Gizleme)
-                response = requests.get(resim_url, headers=headers, timeout=5)
-                response.raise_for_status() # Eğer site 404 veya 403 verirse çökme, except'e atla
-                
-                cekilen_resim = Image.open(BytesIO(response.content))
-                st.session_state.cekilen_fotograflar.append(cekilen_resim)
-                
-                # Sağ taraftaki ekrana basıyoruz
-                kamera_gosterge.image(cekilen_resim, caption=f"📸 Hedef {i+1} Analiz Görüntüsü", use_container_width=True)
+            # O anki koordinatın Google Earth uydu görüntüsünü "Kuşbakışı" çekiyoruz!
+            cam_fig = go.Figure(go.Scattermapbox(
+                lat=[wp_y[i]],
+                lon=[wp_x[i]],
+                mode='markers+text',
+                marker=go.scattermapbox.Marker(size=15, color='lime', symbol='cross'),
+                text=['[  HEDEF KİLİTLENDİ  ]'],
+                textposition="bottom center",
+                textfont=dict(color="lime", size=12)
+            ))
+
+            # Kamera ayarları: Yüksek Zoom ve Gerçek Uydu Görüntüsü
+            cam_fig.update_layout(
+                mapbox_style="white-bg",
+                mapbox_layers=[
+                    {
+                        "below": 'traces',
+                        "sourcetype": "raster",
+                        "source": ["https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}"] # Sadece uydu (yazısız)
+                    }
+                ],
+                mapbox=dict(
+                    center=go.layout.mapbox.Center(lat=wp_y[i], lon=wp_x[i]),
+                    zoom=19 # Kamerayı yere inanılmaz derecede yakınlaştırır
+                ),
+                margin=dict(l=0, r=0, t=0, b=0),
+                height=350,
+                showlegend=False
+            )
             
-            except Exception as e:
-                # Eğer internet koparsa veya bot koruması engellerse DİREN VE UÇUŞA DEVAM ET!
-                kamera_gosterge.error(f"⚠️ Hedef {i+1} kamerasında anlık sinyal kaybı!")
-                # İsteğe bağlı olarak buraya siyah bir "Sinyal Yok" resmi de eklenebilir.
+            # Kamerayı ekrana bas
+            kamera_gosterge.plotly_chart(cam_fig, use_container_width=True)
             
             time.sleep(1.5) # Drone 1.5 saniye sonra diğer noktaya geçsin
 
-        durum_metni.success(f"✅ Uçuş Tamamlandı! {len(st.session_state.cekilen_fotograflar)} adet yüksek çözünürlüklü görüntü sisteme kaydedildi.")
+        durum_metni.success(f"✅ Uçuş Tamamlandı! Tarlanın tamamı otonom olarak piksellendi.")
 else:
     st.info("ℹ️ Tarlayı parselledikten sonra otonom uçuş paneli açılacaktır.")
