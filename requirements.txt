@@ -1,6 +1,7 @@
 streamlit
-google-genai
-Pillow
-pandas
-requests
+folium
+streamlit-folium
 plotly
+pandas
+numpy
+firebase-admin
