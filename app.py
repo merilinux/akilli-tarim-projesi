@@ -68,9 +68,11 @@ st.markdown("""
 FIREBASE_HOST = "botanix-iot-default-rtdb.europe-west1.firebasedatabase.app"
 FIREBASE_URL  = f"https://{FIREBASE_HOST}/botanix_sensor.json"
 
-FIREBASE_DROUGHT_META_URL   = f"https://{FIREBASE_HOST}/botanix_drought_map/meta.json"
-FIREBASE_DROUGHT_POINTS_URL = f"https://{FIREBASE_HOST}/botanix_drought_map/humidity_points.json"
-FIREBASE_DROUGHT_IMG_URL    = f"https://{FIREBASE_HOST}/botanix_drought_map/map_image_b64.json"
+FIREBASE_AUTH = "fVatRmIuJPhmJHUi7Ke9dRJvxKfw7qxbrw1TViz7"
+
+FIREBASE_DROUGHT_META_URL   = f"https://{FIREBASE_HOST}/botanix_drought_map/meta.json?auth={FIREBASE_AUTH}"
+FIREBASE_DROUGHT_POINTS_URL = f"https://{FIREBASE_HOST}/botanix_drought_map/humidity_points.json?auth={FIREBASE_AUTH}"
+FIREBASE_DROUGHT_IMG_URL    = f"https://{FIREBASE_HOST}/botanix_drought_map/map_image_b64.json?auth={FIREBASE_AUTH}"
 
 
 def get_sensor_data_from_firebase():
