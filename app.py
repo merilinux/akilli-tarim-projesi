@@ -695,6 +695,10 @@ else:
     # TAB 5 — KURAKLAK HARİTASI
     # ==========================================
     with tab5:
+        if st.session_state.get("auto_refresh_map", False):
+            import time as _t; _t.sleep(5)
+            st.rerun()
+            
         st.markdown('<span class="section-label">🗺️ Otonom Drone Kuraklık Haritası — Canlı Firebase</span>', unsafe_allow_html=True)
 
         # Görev durumu banner
