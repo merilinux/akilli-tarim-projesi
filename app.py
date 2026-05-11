@@ -117,7 +117,9 @@ def get_drought_points():
 
 def get_drought_map_image():
     try:
-        r = requests.get(FIREBASE_DROUGHT_IMG_URL, timeout=20)
+        import time as _tt
+        url_nocache = FIREBASE_DROUGHT_IMG_URL + f"&t={int(_tt.time())}"
+        r = requests.get(url_nocache, timeout=20)
         if r.status_code == 200:
             b64 = r.json()
             if b64 and isinstance(b64, str):
