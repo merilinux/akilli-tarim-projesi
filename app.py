@@ -722,7 +722,7 @@ else:
 
         col_btn1, col_btn2, _ = st.columns([1, 1, 3])
         with col_btn1:
-            uto_ref = st.toggle("🔄 Otomatik Yenile (5sn)", value=st.session_state.get("auto_refresh_map", False))
+            auto_ref = st.toggle("🔄 Otomatik Yenile (5sn)", value=st.session_state.get("auto_refresh_map", False))
             st.session_state["auto_refresh_map"] = auto_ref
         with col_btn2:
             goster_png = st.toggle("📷 OpenCV PNG Görünümü", value=False)
@@ -735,8 +735,8 @@ else:
         pts_data = get_drought_points()
 
         if pts_data and len(pts_data) >= 2:
-            xs   = [p["x"]           for p in pts_data]
-            ys   = [p["y"]           for p in pts_data]
+            xs   = [p["x"]            for p in pts_data]
+            ys   = [p["y"]            for p in pts_data]
             nems = [p["toprak_nemi"] for p in pts_data]
             hava = [p["hava_nemi"]   for p in pts_data]
             sics = [p["sicaklik"]    for p in pts_data]
