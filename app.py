@@ -720,7 +720,8 @@ else:
 
         col_btn1, col_btn2, _ = st.columns([1, 1, 3])
         with col_btn1:
-            st.button("🔄 Haritayı Yenile", use_container_width=True)
+            uto_ref = st.toggle("🔄 Otomatik Yenile (5sn)", value=st.session_state.get("auto_refresh_map", False))
+            st.session_state["auto_refresh_map"] = auto_ref
         with col_btn2:
             goster_png = st.toggle("📷 OpenCV PNG Görünümü", value=False)
 
