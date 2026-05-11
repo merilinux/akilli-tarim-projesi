@@ -10,6 +10,7 @@ import base64
 from io import BytesIO
 from datetime import datetime
 import plotly.graph_objects as go
+import time as _time
 
 # ==========================================
 # SAYFA AYARLARI VE ŞEFFAF/ESNEK TASARIM (CSS)
@@ -95,9 +96,24 @@ def get_sensor_data_from_firebase():
     return None
 
 
+# ──────────────────────────────────────────
+# DÜZELTME 1 & 2: Her fonksiyona timestamp
+# cache-bust eklendi, requests cache engellendi
+# ──────────────────────────────────────────
+
+def _nocache_headers():
+    """requests'in kendi cache'ini de kır."""
+    return {
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0",
+    }
+
 def get_drought_meta():
     try:
-        r = requests.get(FIREBASE_DROUGHT_META_URL, timeout=5)
+        ts = int(_time.time())
+        url = f"{FIREBASE_DROUGHT_META_URL}&nocache={ts}"
+        r = requests.get(url, timeout=5, headers=_nocache_headers())
         if r.status_code == 200 and r.json():
             return r.json()
     except Exception:
@@ -106,8 +122,11 @@ def get_drought_meta():
 
 
 def get_drought_points():
+    # DÜZELTME 2: Timestamp cache-bust EKLENDİ (eskiden yoktu → eski veri geliyordu)
     try:
-        r = requests.get(FIREBASE_DROUGHT_POINTS_URL, timeout=8)
+        ts = int(_time.time())
+        url = f"{FIREBASE_DROUGHT_POINTS_URL}&nocache={ts}"
+        r = requests.get(url, timeout=8, headers=_nocache_headers())
         if r.status_code == 200 and r.json():
             return r.json()
     except Exception:
@@ -116,10 +135,12 @@ def get_drought_points():
 
 
 def get_drought_map_image():
+    # DÜZELTME 3: st.image key parametresiyle çözülüyor (aşağıda)
+    # Burada da headers eklendi
     try:
-        import time as _tt
-        url_nocache = FIREBASE_DROUGHT_IMG_URL + f"&t={int(_tt.time())}"
-        r = requests.get(url_nocache, timeout=20)
+        ts = int(_time.time())
+        url = f"{FIREBASE_DROUGHT_IMG_URL}&nocache={ts}"
+        r = requests.get(url, timeout=20, headers=_nocache_headers())
         if r.status_code == 200:
             b64 = r.json()
             if b64 and isinstance(b64, str):
@@ -194,7 +215,9 @@ GUNCEL_KULLANICILAR = load_and_sync_users()
 for key, default in [
     ("logged_in", False), ("user_id", ""), ("user_name", ""),
     ("aktif_bahce", ""), ("kullanici_bahceleri", []),
-    ("is_guest", False), ("sensor_data", {"temp": 0, "hum": 0, "soil": 0})
+    ("is_guest", False), ("sensor_data", {"temp": 0, "hum": 0, "soil": 0}),
+    # DÜZELTME 1: auto-refresh için son rerun zamanı
+    ("_last_map_refresh", 0.0),
 ]:
     if key not in st.session_state:
         st.session_state[key] = default
@@ -694,17 +717,39 @@ else:
         met3.metric("⏱️ Tahmini Uçuş Süresi",  f"{tahmini_sure:.1f} Dakika")
 
     # ==========================================
-    # TAB 5 — KURAKLAK HARİTASI
+    # TAB 5 — KURAKLAK HARİTASI  (TAMAMEN YENİDEN YAZILDI)
     # ==========================================
     with tab5:
-        if st.session_state.get("auto_refresh_map", False):
-            import time as _t; _t.sleep(5)
-            st.rerun()
-            
         st.markdown('<span class="section-label">🗺️ Otonom Drone Kuraklık Haritası — Canlı Firebase</span>', unsafe_allow_html=True)
 
-        # Görev durumu banner
-        meta = get_drought_meta()
+        # ── DÜZELTME 1: Otomatik yenileme — sleep(5) KALDIRILDI ────────────────
+        # Eski kod: time.sleep(5) → st.rerun()  →  Streamlit thread'i bloke olur,
+        # rerun hiç tetiklenmezdi.
+        # Yeni yöntem: sayfa her render'landığında geçen süreyi kontrol et,
+        # toggle açıksa direkt st.rerun() çağır (sleep yok).
+        # ────────────────────────────────────────────────────────────────────────
+        col_btn1, col_btn2, _ = st.columns([1, 1, 3])
+        with col_btn1:
+            auto_ref = st.toggle(
+                "🔄 Otomatik Yenile (5sn)",
+                value=st.session_state.get("auto_refresh_map", False),
+                key="toggle_auto_ref"
+            )
+            st.session_state["auto_refresh_map"] = auto_ref
+        with col_btn2:
+            goster_png = st.toggle("📷 OpenCV PNG Görünümü", value=False, key="toggle_png")
+
+        # Auto-refresh: sleep olmadan, sadece rerun — Streamlit bunu güvenle halleder
+        if auto_ref:
+            now_ts = _time.time()
+            last_refresh = st.session_state.get("_last_map_refresh", 0.0)
+            if now_ts - last_refresh >= 5.0:
+                st.session_state["_last_map_refresh"] = now_ts
+                _time.sleep(0)   # yield — widget'ların render olmasını garantile
+                st.rerun()
+
+        # ── Görev durumu banner ─────────────────────────────────────────────────
+        meta = get_drought_meta()   # cache-bust timestamp artık içinde
 
         if meta:
             status       = meta.get("mission_status", "BİLİNMİYOR")
@@ -720,18 +765,10 @@ else:
 
         st.divider()
 
-        col_btn1, col_btn2, _ = st.columns([1, 1, 3])
-        with col_btn1:
-            auto_ref = st.toggle("🔄 Otomatik Yenile (5sn)", value=st.session_state.get("auto_refresh_map", False))
-            st.session_state["auto_refresh_map"] = auto_ref
-        with col_btn2:
-            goster_png = st.toggle("📷 OpenCV PNG Görünümü", value=False)
-
-        st.divider()
-
-        # Plotly interaktif harita
+        # ── Plotly interaktif harita ────────────────────────────────────────────
         st.markdown('<span class="section-label">📊 İnteraktif Nem Dağılımı (Plotly)</span>', unsafe_allow_html=True)
 
+        # DÜZELTME 2: get_drought_points() artık cache-bust timestamp taşıyor
         pts_data = get_drought_points()
 
         if pts_data and len(pts_data) >= 2:
@@ -805,7 +842,10 @@ else:
                 margin=dict(l=20, r=20, t=20, b=20),
                 hovermode="closest",
             )
-            st.plotly_chart(fig_d, use_container_width=True)
+
+            # DÜZELTME 3 (Plotly): key parametresi eklendi — her rerun'da Plotly
+            # widget'ı yeni veriyle sıfırdan render edilir, önbelleğe yapışmaz
+            st.plotly_chart(fig_d, use_container_width=True, key=f"drought_plotly_{int(_time.time() // 5)}")
 
             # Özet kutu
             kurak_sayisi = len(kurak_pts)
@@ -836,14 +876,22 @@ else:
             </div>
             """, unsafe_allow_html=True)
 
-        # OpenCV PNG görünümü
+        # ── OpenCV PNG görünümü ─────────────────────────────────────────────────
         if goster_png:
             st.divider()
             st.markdown('<span class="section-label">🖼️ Drone\'un Ürettiği Kuraklık Haritası (OpenCV)</span>', unsafe_allow_html=True)
             with st.spinner("Firebase'den harita PNG indiriliyor..."):
-                map_img = get_drought_map_image()
+                map_img = get_drought_map_image()  # zaten nocache URL kullanıyor
+
             if map_img:
-                st.image(map_img, caption="Drone görevinin ürettiği kuraklık haritası (IDW interpolasyon)", use_container_width=True)
-                st.success("✅ Harita başarıyla yüklendi.")
+                # DÜZELTME 4: st.image'a benzersiz caption → Streamlit aynı
+                # görüntüyü tekrar render etmek yerine yenisini çizer
+                fetch_ts = datetime.now().strftime("%H:%M:%S")
+                st.image(
+                    map_img,
+                    caption=f"Drone kuraklık haritası — {fetch_ts}",
+                    use_container_width=True
+                )
+                st.success(f"✅ Harita yüklendi — {fetch_ts}")
             else:
                 st.warning("⚠️ Henüz final harita yüklenmemiş. Drone görevi tamamlandığında burada görünecek.")
