@@ -1,9 +1,8 @@
-
 import streamlit as st
 from google import genai
 from PIL import Image
 import pandas as pd
-import random
+import requests
 from datetime import datetime, timedelta
 
 st.set_page_config(page_title="Akıllı Tarım ve Otonom Sulama", layout="wide", page_icon="🌱")
@@ -43,12 +42,12 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 st.title("🌱 Akıllı Tarım ve Otonom Sulama Platformu")
-st.markdown("Bu sistem; **ESP32 ve DHT22** tabanlı çevresel sensör verilerini, **ESP32-CAM** üzerinden alınan otonom görüntülerle **Bütünleşik Yapay Zekâ** ortamında sentezleyerek noktasal sulama optimizasyonu ve **Proaktif Karar Destek** sunar.")
+st.markdown("Bu sistem; **ESP32/8266 ve DHT** tabanlı çevresel sensör verilerini, **ESP32-CAM** üzerinden alınan otonom görüntülerle **Bütünleşik Yapay Zekâ** ortamında sentezleyerek noktasal sulama optimizasyonu ve **Proaktif Karar Destek** sunar.")
 
 with st.sidebar:
     st.header("⚙️ Sistem Ayarları")
     api_key = st.text_input("Gemini API Anahtarı (Zorunlu)", type="password")
-    st.info("💡 Sistem, Multimodal Veri Sentezi (SaaS Modeli) için Gemini 2.5 Flash-Lite modelini kullanmaktadır.")
+    st.info("💡 Sistem, Multimodal Veri Sentezi (SaaS Modeli) için Gemini modelini kullanmaktadır.")
     st.divider()
     st.write("Bulut Bağlantı Durumu: " + ("✅ Çevrimiçi (Firebase Senkronize)" if api_key else "🔴 API Bekleniyor"))
 
@@ -63,23 +62,40 @@ if "history" not in st.session_state:
 
 if "sensor_data" not in st.session_state:
     st.session_state.sensor_data = {
-        "temp": random.randint(15, 35),
-        "hum": random.randint(30, 85),
-        "soil": random.randint(20, 75)
+        "temp": 0.0,
+        "hum": 0.0,
+        "soil": 0
     }
 
 tab1, tab2, tab3 = st.tabs(["📸 Anlık Analiz ve Veri Füzyonu", "📅 Gelişim Ajandası", "🔮 Proaktif Simülasyon "])
 
 with tab1:
-    st.subheader("📊 IoT Sensör Ağı Canlı Akışı (ESP32 Düğümü)")
+    st.subheader("📊 IoT Sensör Ağı Canlı Akışı")
     
-    if st.button("📡 ESP32 Sensör Verilerini Çek"):
-        st.session_state.sensor_data = {
-            "temp": random.randint(10, 42),
-            "hum": random.randint(20, 95),
-            "soil": random.randint(10, 90)
-        }
-        st.success("✅ Sahadaki kapasitif ve DHT22 sensörlerinden anlık güncel veriler çekildi!")
+    if st.button("📡 ESP Sensör Verilerini Çek (Firebase)"):
+        FIREBASE_URL = "https://botanix-iot-default-rtdb.europe-west1.firebasedatabase.app/botanix_sensor.json?auth=fVatRmIuJPhmJHUi7Ke9dRJvxKfw7qxbrw1TViz7"
+        
+        with st.spinner("Firebase'den güncel veriler okunuyor..."):
+            try:
+                response = requests.get(FIREBASE_URL)
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    
+                    if data:
+                        st.session_state.sensor_data = {
+                            "temp": data.get("ortam_sicakligi", 0.0),
+                            "hum": data.get("hava_nemi", 0.0),
+                            "soil": data.get("toprak_nemi", 0)
+                        }
+                        st.success("✅ Sahadaki sensörlerden Firebase aracılığıyla anlık güncel veriler çekildi!")
+                    else:
+                        st.warning("⚠️ Firebase'e bağlanıldı ancak henüz kaydedilmiş veri bulunamadı.")
+                else:
+                    st.error(f"❌ Firebase bağlantı hatası! Durum Kodu: {response.status_code}")
+                    
+            except Exception as e:
+                st.error(f"Sistem Hatası: Veriler çekilirken bir sorun oluştu: {e}")
 
     met_col1, met_col2, met_col3 = st.columns(3)
     met_col1.metric(label="🌡 Ortam Sıcaklığı", value=f"{st.session_state.sensor_data['temp']} °C")
@@ -88,14 +104,14 @@ with tab1:
     
     st.divider()
 
-    st.subheader("📷 ESP32-CAM Otonom Görüntü Girişi")
+    st.subheader("📷 Kamera Otonom Görüntü Girişi")
     image = None
     
     with st.expander("Görsel Girişi", expanded=False):
         gorsel_secimi = st.radio("Analiz için görüntü kaynağı seçin:", ["📸 Canlı Kamera", "📁 Sistemden Yükle (Gizli)"], horizontal=True)
         
         if gorsel_secimi == "📸 Canlı Kamera":
-            kamera_fotosu = st.camera_input("Bitkinin fotoğrafını çekin (ESP32-CAM Simülasyonu)")
+            kamera_fotosu = st.camera_input("Bitkinin fotoğrafını çekin")
             if kamera_fotosu:
                 image = Image.open(kamera_fotosu)
                 st.success("✅ Canlı görüntü başarıyla yakalandı! Sekmeyi kapatabilirsiniz.")
@@ -115,7 +131,7 @@ with tab1:
         if not api_key:
             st.error("⚠️ Lütfen sol menüden Gemini API anahtarınızı girin.")
         elif not image:
-            st.warning("⚠️ Analiz için sensör verilerinin yanında bir görüntü de gereklidir. Lütfen gizli menüden görüntü sağlayın.")
+            st.warning("⚠️ Analiz için sensör verilerinin yanında bir görüntü de gereklidir. Lütfen menüden görüntü sağlayın.")
         else:
             with st.spinner("Bulut veri tabanı ile bağlantı kuruluyor... Görüntü ve sensör verileri sentezleniyor..."):
                 try:
@@ -128,8 +144,8 @@ with tab1:
 
                     prompt = f"""
                     Sen bu projenin temelini oluşturan, otonom kararlar alabilen bir "Multimodal Tarım Yapay Zekası"sın.
-                    Kullanıcı sana IoT sensör ağından (ESP32, DHT22, Kapasitif Nem Sensörü) gelen verileri ve ESP32-CAM'den alınan bitkinin güncel fotoğrafını sunuyor.
-                    Bu sistem karmaşık kimyasal/pH sensörleri kullanmaz; tamamen "su/nem stresi" ve "görsel deformasyonlara" odaklanarak su israfını önlemeyi (noktasal sulama) hedefler.
+                    Kullanıcı sana IoT sensör ağından (ESP, DHT, Kapasitif Nem Sensörü) gelen verileri ve alınan bitkinin güncel fotoğrafını sunuyor.
+                    Bu sistem karmaşık kimyasal/pH sensörleri kullanmaz; tamamen "su/nem stresi" ve "görsel deformasyonlara" odaklanarak su israfını önlemeyi hedefler.
 
                     GÖREV 1: SAHTELİK KONTROLÜ
                     Fotoğraftaki bitki SUNİ/YAPAY/PLASTİK ise sadece "[SAHTE]" yazıp sebebini 1 cümle ile açıkla.
@@ -151,7 +167,7 @@ with tab1:
                     """
 
                     response = client.models.generate_content(
-                        model='gemini-2.5-flash-lite',
+                        model='gemini-2.5-flash',
                         contents=[prompt, image]
                     )
                     response_text = response.text
@@ -235,7 +251,7 @@ with tab3:
                     """
 
                     sim_response = client.models.generate_content(
-                        model='gemini-2.5-flash-lite',
+                        model='gemini-2.5-flash',
                         contents=sim_prompt
                     )
                     
